@@ -12,17 +12,14 @@ class SymptomDiseaseModel:
         self.model.add(Dense(len(y_train.unique()), activation='softmax'))
         self.model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])  
 
-    def train(self, X_train, y_train, epochs=10, batch_size=32):
+    def train(self, X_train, y_train, epochs=3, batch_size=32):
         self.model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size)
 
-    def evaluate(self, X_test, y_test):
+    def evaluate_model(self, X_test, y_test):
         return self.model.evaluate(X_test, y_test)
 
     def predict(self, X_input):
         return self.model.predict(X_input)
 
-    def save_model(self, filepath='saved_model.h5'):
+    def save_model(self, filepath='models/saved_model.h5'):
         self.model.save(filepath)
-
-    def load_model(self, filepath='saved_model.h5'):
-        self.model = tf.keras.models.load_model(filepath)

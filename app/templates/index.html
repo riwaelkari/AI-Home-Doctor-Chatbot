@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Home Doctor Chatbot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome to Home Doctor Chatbot</h1>
+        <form action="{{ url_for('predict') }}" method="POST">
+            <label for="symptoms">Enter your symptoms separated by commas:</label><br><br>
+            <input type="text" id="symptoms" name="symptoms" placeholder="e.g., itching, skin_rash, nodal_skin_eruptions" required size="100"><br><br>
+            <input type="submit" value="Get Diagnosis">
+        </form>
+    </div>
+</body>
+</html>

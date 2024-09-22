@@ -1,3 +1,6 @@
 flask
 requests
 pandas
+tensorflow
+scikit-learn
+pickle
