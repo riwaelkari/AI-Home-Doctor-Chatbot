@@ -1,58 +1,21 @@
 # app/server.py
-from data_processing import load_data, preprocess_data
-from flask import Flask, render_template, request
+
+from flask import Flask, render_template, request, jsonify
 from models.neural_network import SymptomDiseaseModel
+from data_processing import load_data, preprocess_data
 import pickle
 import numpy as np
 import os
+from utils import encode_user_symptoms, decode_prediction
 app = Flask(__name__)
 
-    # Load and preprocess data
-symptom_df, description_df, precaution_df, severity_df, testing_symptoms_df = load_data()
-training_data_cleaned , testing_data_cleaned, classes, all_symptoms  = preprocess_data(symptom_df, testing_symptoms_df)
-print(training_data_cleaned.shape)
-print(testing_data_cleaned.shape)
-
-X_train = training_data_cleaned.drop(columns=['prognosis', 'prognosis_encoded'])
-y_train = training_data_cleaned['prognosis_encoded']
-X_test = testing_data_cleaned.drop(columns=['prognosis', 'prognosis_encoded'])
-y_test = testing_data_cleaned['prognosis_encoded']
-
-model = SymptomDiseaseModel(y_train)
-
-model.train(X_train, y_train)
-model.save_model()
 # Load the Label Encoder
-
-def encode_user_symptoms(user_symptoms, all_symptoms):
-    """
-    Converts user symptoms into a binary vector based on all possible symptoms.
-    """
-    input_vector = np.zeros(len(all_symptoms))
-    symptom_to_index = {symptom: idx for idx, symptom in enumerate(all_symptoms)}
-    unrecognized = []
-
-    for symptom in user_symptoms:
-        symptom = symptom.strip().lower()
-        if symptom in symptom_to_index:
-            index = symptom_to_index[symptom]
-            input_vector[index] = 1
-        else:
-            unrecognized.append(symptom)
-
-    if unrecognized:
-        print(f"Warning: The following symptoms were not recognized: {', '.join(unrecognized)}")
-        # Optionally, handle unrecognized symptoms more gracefully in the web app
-
-    return input_vector.reshape(1, -1)
-
-def decode_prediction(prediction, classes):
-    """
-    Converts the model's output into a disease name.
-    """
-    predicted_index = np.argmax(prediction)
-    predicted_disease = classes[predicted_index]
-    return predicted_disease
+symptom_df, description_df, precaution_df, severity_df, testing_symptoms_df = load_data()
+training_data_cleaned, testing_data_cleaned, classes, all_symptoms = preprocess_data(symptom_df, testing_symptoms_df)
+# Load the trained model
+y_train = training_data_cleaned['prognosis_encoded']
+model = SymptomDiseaseModel(y_train)
+model.load_model('models/saved_model.h5')
 
 @app.route('/')
 def index():
@@ -66,13 +29,42 @@ def predict():
         user_symptoms = [sym.strip().lower() for sym in user_input.split(',')]
 
         # Encode symptoms
-        X_input = encode_user_symptoms(user_symptoms, all_symptoms)
+        X_input, unrecognized = encode_user_symptoms(user_symptoms, all_symptoms)
 
         # Make prediction
         prediction = model.predict(X_input)
         predicted_disease = decode_prediction(prediction, classes)
 
-        return render_template('result.html', disease=predicted_disease)
+        # Prepare warning message if there are unrecognized symptoms
+        if unrecognized:
+            warning = f"Warning: The following symptoms were not recognized: {', '.join(unrecognized)}. Please check the spelling or enter different symptoms."
+        else:
+            warning = None
 
-if __name__ == '__main__':
-    app.run(debug=True)
+        return render_template('result.html', disease=predicted_disease, warning=warning)
+
+@app.route('/api/predict', methods=['POST'])
+def api_predict():
+    if request.method == 'POST':
+        data = request.get_json()
+        if not data or 'symptoms' not in data:
+            return jsonify({'error': 'No symptoms provided.'}), 400
+        
+        user_symptoms = [sym.strip().lower() for sym in data['symptoms']]
+        
+        # Encode symptoms
+        X_input, unrecognized = encode_user_symptoms(user_symptoms, all_symptoms)
+        
+        # Make prediction
+        prediction = model.predict(X_input)
+        predicted_disease = decode_prediction(prediction, classes)
+        
+        response = {
+            'predicted_disease': predicted_disease,
+            'unrecognized_symptoms': unrecognized
+        }
+        
+        return jsonify(response), 200
+
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=5000, debug=True)
