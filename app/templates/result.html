@@ -1,3 +1,5 @@
+<!-- app/templates/result.html -->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,6 +11,9 @@
     <div class="container">
         <h1>Your Predicted Disease</h1>
         <p>The predicted disease is: <strong>{{ disease }}</strong></p>
+        {% if warning %}
+            <p class="warning">{{ warning }}</p>
+        {% endif %}
         <a href="{{ url_for('index') }}">Diagnose Another</a>
     </div>
 </body>

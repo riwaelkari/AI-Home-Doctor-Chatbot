@@ -3,4 +3,10 @@ requests
 pandas
 tensorflow
 scikit-learn
-pickle
+huggingface_hub
+h5py
+python-dotenv
+numpy
+scikit-learn
+transformers
+torch

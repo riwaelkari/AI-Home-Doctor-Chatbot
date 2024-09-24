@@ -1,3 +1,5 @@
+<!-- app/templates/index.html -->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,11 +10,20 @@
 <body>
     <div class="container">
         <h1>Welcome to Home Doctor Chatbot</h1>
-        <form action="{{ url_for('predict') }}" method="POST">
-            <label for="symptoms">Enter your symptoms separated by commas:</label><br><br>
-            <input type="text" id="symptoms" name="symptoms" placeholder="e.g., itching, skin_rash, nodal_skin_eruptions" required size="100"><br><br>
-            <input type="submit" value="Get Diagnosis">
-        </form>
+        
+        <div class="section">
+            <h2>Symptom-Based Disease Prediction</h2>
+            <form method="POST" action="{{ url_for('predict') }}">
+                <label for="symptoms">Enter your symptoms separated by commas:</label><br>
+                <textarea name="symptoms" rows="4" cols="50" placeholder="e.g., itching, skin rash, nausea" required></textarea><br>
+                <button type="submit">Get Diagnosis</button>
+            </form>
+        </div>
+        
+        <div class="section">
+            <h2>General Medical Q&A</h2>
+            <a href="{{ url_for('ask') }}">Ask a Medical Question</a>
+        </div>
     </div>
 </body>
 </html>

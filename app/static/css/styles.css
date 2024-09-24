@@ -1,56 +1,49 @@
+/* app/static/css/styles.css */
+
 body {
     font-family: Arial, sans-serif;
     background-color: #f2f2f2;
 }
 
 .container {
-    width: 50%;
+    width: 60%;
     margin: auto;
-    background-color: white;
+    background-color: #fff;
     padding: 20px;
-    margin-top: 50px;
-    border-radius: 8px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    margin-top: 50px;
 }
 
-h1 {
+h1, h2 {
     text-align: center;
-    color: #333;
 }
 
-form {
-    display: flex;
-    flex-direction: column;
-}
-
-input[type="text"] {
+textarea {
+    width: 100%;
     padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-}
-
-input[type="submit"] {
-    padding: 10px;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
     margin-top: 10px;
 }
 
-input[type="submit"]:hover {
-    background-color: #45a049;
+button {
+    padding: 10px 20px;
+    margin-top: 10px;
+    cursor: pointer;
 }
 
 a {
     display: block;
     text-align: center;
     margin-top: 20px;
-    color: #4CAF50;
     text-decoration: none;
+    color: #007BFF;
 }
 
-a:hover {
-    text-decoration: underline;
+.warning {
+    color: red;
+    font-weight: bold;
+    text-align: center;
+}
+
+.section {
+    margin-bottom: 40px;
 }

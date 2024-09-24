@@ -14,7 +14,7 @@ def preprocess_data(symptom_df,testing_symptoms):
     label_encoder = LabelEncoder()
     training_data_cleaned['prognosis_encoded'] = label_encoder.fit_transform(training_data_cleaned['prognosis'])
     testing_data_cleaned = testing_symptoms.copy()
-    testing_data_cleaned['prognosis_encoded'] = label_encoder.transform(testing_data_cleaned['prognosis'])
+    testing_data_cleaned['prognosis_encoded'] = label_encoder.fit_transform(testing_data_cleaned['prognosis'])
     classes = label_encoder.classes_.tolist()
     all_symptoms = [
     'itching', 'skin_rash', 'nodal_skin_eruptions', 'continuous_sneezing', 'shivering', 'chills',

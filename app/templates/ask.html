@@ -1,0 +1,21 @@
+<!-- app/templates/ask.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ask a Medical Question</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Ask a Medical Question</h1>
+        <form method="POST">
+            <label for="question">Enter your question:</label><br>
+            <textarea name="question" rows="4" cols="50" placeholder="e.g., What are the symptoms of diabetes?" required></textarea><br>
+            <button type="submit">Get Answer</button>
+        </form>
+        <a href="{{ url_for('index') }}">Back to Home</a>
+    </div>
+</body>
+</html>

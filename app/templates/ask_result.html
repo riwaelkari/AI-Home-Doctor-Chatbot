@@ -1,0 +1,22 @@
+<!-- app/templates/ask_result.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Answer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Your Question:</h1>
+        <p><strong>{{ question }}</strong></p>
+        
+        <h2>Answer:</h2>
+        <p>{{ answer }}</p>
+        
+        <a href="{{ url_for('ask') }}">Ask Another Question</a>
+        <a href="{{ url_for('index') }}">Back to Home</a>
+    </div>
+</body>
+</html>
