@@ -26,8 +26,5 @@ def main():
     model.save_model('models/saved_model.h5')
     
     print("Model training and saving completed successfully.")
-
-    def getpar():
-        return classes, all_symptoms
 if __name__ == "__main__":
     main()
