@@ -1,8 +1,7 @@
-# streamlit_app.py
 import streamlit as st
 import requests
 
-API_URL = "http://127.0.0.1:5000/predict"  # Ensure Flask server is running
+API_URL = "http://127.0.0.1:5000/chat"  # Ensure Flask server is running
 
 st.set_page_config(page_title="Home Doctor Chatbot", page_icon="🩺")
 
@@ -11,55 +10,27 @@ st.title("🏥 Home Doctor Chatbot")
 # Initialize session state to keep track of the conversation
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "bot", "content": "Hello! Are you feeling unwell today?"}
+        {"role": "bot", "content": "Hello! How can I assist you today?"}
     ]
-    st.session_state.awaiting_symptoms = False  # Flag to track if symptoms are expected
 
-# Function to send user input and receive response
+# Function to send user input and receive response from GPT
 def send_message(user_input):
     st.session_state.messages.append({"role": "user", "content": user_input})
-    
-    # Check if the app is awaiting symptoms input
-    if st.session_state.get('awaiting_symptoms', False):
-        # Assume the user is providing symptoms
-        symptoms = [sym.strip() for sym in user_input.split(",")]
-        try:
-            response = requests.post(API_URL, json={"symptoms": symptoms})
-            if response.status_code == 200:
-                data = response.json()
-                predicted_disease = data.get("predicted_disease", "Unknown")
-                gpt_response = data.get("gpt_response", "No additional information.")
-                st.session_state.messages.append({
-                    "role": "bot", 
-                    "content": f"**Predicted Disease:** {predicted_disease}\n\n**Doctor says:** {gpt_response}"
-                })
-            else:
-                # Attempt to extract error message from response
-                try:
-                    data = response.json()
-                    error_message = data.get("error", "An error occurred.")
-                except:
-                    error_message = "An error occurred."
-                st.session_state.messages.append({"role": "bot", "content": f"Error: {error_message}"})
-        except Exception as e:
-            st.session_state.messages.append({"role": "bot", "content": f"Error: {str(e)}"})
-        finally:
-            st.session_state.awaiting_symptoms = False  # Reset the flag
-    else:
-        # Initial response handling
-        if user_input.strip().lower() in ["yes", "y", "i am not feeling well", "yes, I am"]:
-            st.session_state.messages.append({"role": "bot", "content": "I'm sorry to hear that. Please enter your symptoms separated by commas."})
-            st.session_state.awaiting_symptoms = True  # Set the flag to await symptoms
+    try:
+        response = requests.post(API_URL, json={"message": user_input})
+        if response.status_code == 200:
+            data = response.json()
+            gpt_response = data.get("gpt_response", "No response from the chatbot.")
+            st.session_state.messages.append({
+                "role": "bot", 
+                "content": gpt_response
+            })
         else:
-            st.session_state.messages.append({"role": "bot", "content": "I'm here to help if you need anything."})
+            st.session_state.messages.append({"role": "bot", "content": "Error: Failed to get a response."})
+    except Exception as e:
+        st.session_state.messages.append({"role": "bot", "content": f"Error: {str(e)}"})
 
-# Chat Interface
-for message in st.session_state.messages:
-    if message["role"] == "user":
-        st.markdown(f"**You:** {message['content']}")
-    else:
-        st.markdown(f"**Doctor:** {message['content']}")
-
+# --------- Move Form Handling Above Message Display ---------
 # User input
 with st.form(key='chat_form', clear_on_submit=True):
     user_input = st.text_input("You:", "")
@@ -67,4 +38,10 @@ with st.form(key='chat_form', clear_on_submit=True):
 
 if submit_button and user_input:
     send_message(user_input)
-    # No need to call st.experimental_rerun()
+
+# --------- Display Messages After Handling Input ---------
+for message in st.session_state.messages:
+    if message["role"] == "user":
+        st.markdown(f"**You:** {message['content']}")
+    else:
+        st.markdown(f"**Doctor:** {message['content']}")
