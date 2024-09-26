@@ -6,9 +6,9 @@ def load_data():
     description_df = pd.read_csv('../dataset/symptom_Description.csv')
     precaution_df = pd.read_csv('../dataset/symptom_precaution.csv')
     severity_df = pd.read_csv('../dataset/Symptom-severity.csv')
-    testing_symptoms_df= pd.read_csv('../dataset/disease_symptoms_test.csv')
+    testing_symptoms_df = pd.read_csv('../dataset/disease_symptoms_test.csv')
     return symptom_df, description_df, precaution_df, severity_df, testing_symptoms_df
-
+#SHO BOOOOOOO
 def preprocess_data(symptom_df,testing_symptoms):
     training_data_cleaned = symptom_df
     label_encoder = LabelEncoder()

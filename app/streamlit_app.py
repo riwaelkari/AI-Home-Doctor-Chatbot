@@ -1,11 +1,22 @@
 import streamlit as st
 import requests
+from PIL import Image
 
 API_URL = "http://127.0.0.1:5000/chat"  # Ensure Flask server is running
 
 st.set_page_config(page_title="Home Doctor Chatbot", page_icon="🩺")
+icon = Image.open("app/images/logo-1-removebg.png")
 
-st.title("🏥 Home Doctor Chatbot")
+col1, col2 = st.columns([1, 8])  # Adjust the width ratio as needed (1:8)
+
+# Display the logo in the first column
+with col1:
+    st.image(icon, width= 95)  # Adjust the width as needed
+
+# Display the title in the second column
+with col2:
+    st.title("Home Doctor Chatbot")
+
 
 # Initialize session state to keep track of the conversation
 if "messages" not in st.session_state:
@@ -19,7 +30,7 @@ def send_message(user_input):
     try:
         response = requests.post(API_URL, json={"message": user_input})
         if response.status_code == 200:
-            data = response.json()
+            data = response.json() #whats hapening khls give up?
             gpt_response = data.get("gpt_response", "No response from the chatbot.")
             st.session_state.messages.append({
                 "role": "bot", 
