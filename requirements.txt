@@ -3,10 +3,10 @@ requests
 pandas
 tensorflow
 scikit-learn
-huggingface_hub
 h5py
 python-dotenv
 numpy
-scikit-learn
-transformers
 torch
+langchain
+openai
+streamlit
