@@ -1,8 +1,6 @@
 # scripts/train.py
-
-import pickle
 import numpy as np
-from models.neural_network import SymptomDiseaseModel
+from train_models.neural_network import SymptomDiseaseModel
 from data_processing import load_data, preprocess_data
 
 def main():
