@@ -28,7 +28,7 @@ if "messages" not in st.session_state:
 def send_message(user_input):
     st.session_state.messages.append({"role": "user", "content": user_input})
     try:
-        response = requests.post(API_URL, json={"message": user_input})
+        response = requests.post(API_URL, json={"messages": user_input})
         if response.status_code == 200:
             data = response.json() 
             gpt_response = data.get("gpt_response", "No response from the chatbot.")

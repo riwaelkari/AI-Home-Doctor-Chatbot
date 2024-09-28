@@ -27,10 +27,7 @@ def gpt_response(message):
     try:
         response = openai.chat.completions.create(
             model="gpt-4o-mini",  # Change to your GPT model of choice
-            messages=[
-                {"role": "system", "content": "You are a helpful doctor chatbot. Your main role is extracting symptoms from the user and matching them with the list of symptoms i provide you, IF you get the symptoms return them as a list: ['symptom1','symptom2'] . The list of symptoms is: " + ', '.join(all_symptoms)},
-                {"role": "user", "content": message}
-            ],
+            messages=message,
             max_tokens=150,
             n=1,
             stop=None,
@@ -44,10 +41,7 @@ def gpt_response_afterdisease(message):
     try:
         response = openai.chat.completions.create(
             model="gpt-4o-mini",  # Change to your GPT model of choice
-            messages=[
-                {"role": "system", "content": 'i will provide you the disease, you just have to tell me that i have it'},
-                {"role": "user", "content": message}
-            ],
+            messages=message,
             max_tokens=150,
             n=1,
             stop=None,
@@ -77,32 +71,54 @@ def extract_list_from_string(input_str):
         return list_elements
 
     return None
+
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
         data = request.get_json()
-        if not data or 'message' not in data:
+        print(data['messages'])
+        if not data or 'messages' not in data:
             logger.warning("No message provided in the request.")
             return jsonify({'error': 'No message provided.'}), 400
-        
-        user_message = data['message']
+        user_message = data['messages']
         logger.info(f"Received message: {user_message}")
-        
-        # Get GPT response based on user's message
-        gpt_reply = gpt_response(user_message)
+
+        # Initialize conversation history with the initial system prompt and user message
+        messages = [
+                {"role": "system", "content": "You are a helpful doctor chatbot. Your main role is extracting symptoms from the user and matching them with the list of symptoms i provide you, IF you get the symptoms return them as a list: ['symptom1','symptom2']. The list of symptoms is: " + ', '.join(all_symptoms)},
+                {"role": "user", "content": user_message}
+            ]
+
+        # Get GPT response to extract symptoms
+        gpt_reply = gpt_response(messages)
         logger.info("GPT response generated successfully.")
         user_symptoms = extract_list_from_string(gpt_reply)
         print(user_symptoms)
-        if type(user_symptoms) == list:
-            X_input = encode_user_symptoms_fromgpt(user_symptoms,all_symptoms)
+
+        if isinstance(user_symptoms, list):
+            X_input = encode_user_symptoms_fromgpt(user_symptoms, all_symptoms)
             print(X_input)
             prediction = model.predict(X_input)
-            predicted_disease = decode_prediction(prediction,classes)  
-            gpt_reply = gpt_response_afterdisease('i have ' + predicted_disease)
+            predicted_disease = decode_prediction(prediction, classes)
+
+            # Append the assistant's response to the conversation history
+            messages.append({"role": "assistant", "content": gpt_reply})
+
+            # Append the new system role instructing GPT to inform the user of the predicted disease
+            messages.append({
+                "role": "system",
+                "content": f"You have diagnosed the patient with {predicted_disease}. Please inform the patient accordingly."
+            })
+
+            # Call GPT again to tell the user their predicted disease
+            gpt_reply = gpt_response(messages)
+        messages.append({"role": "user", "content":user_message})
         print(gpt_reply)
         return jsonify({
-            'gpt_response': gpt_reply
+            'gpt_response': gpt_reply,
+            'messages': messages
         }), 200
+
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         return jsonify({'error': f"An unexpected error occurred: {e}"}), 500
