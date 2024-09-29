@@ -1,8 +1,11 @@
+# streamlit_app.py
+
 import streamlit as st
 import requests
 from PIL import Image
 
-API_URL = "http://127.0.0.1:5000/chat"  # Ensure Flask server is running
+API_CHAT_URL = "http://127.0.0.1:5000/chat"      # Ensure Flask server is running
+API_DETAILS_URL = "http://127.0.0.1:5000/details"  # Endpoint for details
 
 st.set_page_config(page_title="Home Doctor Chatbot", page_icon="🩺")
 icon = Image.open("images/logo-1-removebg.png")
@@ -11,38 +14,65 @@ col1, col2 = st.columns([1, 8])  # Adjust the width ratio as needed (1:8)
 
 # Display the logo in the first column
 with col1:
-    st.image(icon, width= 95)  # Adjust the width as needed
+    st.image(icon, width=95)  # Adjust the width as needed
 
 # Display the title in the second column
 with col2:
     st.title("Home Doctor Chatbot")
 
-
-# Initialize session state to keep track of the conversation
+# Initialize session state to keep track of the conversation and disease
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {"role": "bot", "content": "Hello! How can I assist you today?"}
     ]
 
+if "predicted_disease" not in st.session_state:
+    st.session_state.predicted_disease = None
+
 # Function to send user input and receive response from GPT
 def send_message(user_input):
     st.session_state.messages.append({"role": "user", "content": user_input})
     try:
-        response = requests.post(API_URL, json={"messages": user_input})
-        if response.status_code == 200:
-            data = response.json() 
-            gpt_response = data.get("gpt_response", "No response from the chatbot.")
-            st.session_state.messages.append({
-                "role": "bot", 
-                "content": gpt_response
-            })
+        if st.session_state.predicted_disease is None:
+            # Initial chat
+            response = requests.post(API_CHAT_URL, json={"messages": user_input})
+            if response.status_code == 200:
+                data = response.json()
+                gpt_response = data.get("gpt_response", "No response from the chatbot.")
+                st.session_state.predicted_disease = data.get("predicted_disease", None)
+                st.session_state.messages.append({
+                    "role": "bot",
+                    "content": gpt_response
+                })
+            else:
+                st.session_state.messages.append({"role": "bot", "content": "Error: Failed to get a response."})
         else:
-            st.session_state.messages.append({"role": "bot", "content": "Error: Failed to get a response."})
+            # User is asking for details about the disease
+            query = user_input.lower()
+            if query in ['description', 'precautions', 'severity']:
+                response = requests.post(API_DETAILS_URL, json={
+                    "disease": st.session_state.predicted_disease,
+                    "query": query
+                })
+                if response.status_code == 200:
+                    data = response.json()
+                    detail = data.get("detail", "No information available.")
+                    st.session_state.messages.append({
+                        "role": "bot",
+                        "content": detail
+                    })
+                else:
+                    st.session_state.messages.append({"role": "bot", "content": "Error: Failed to retrieve details."})
+            else:
+                # Handle unexpected queries, possibly pass back to the main chat
+                st.session_state.messages.append({
+                    "role": "bot",
+                    "content": "You can ask me about the 'description', 'precautions', or 'severity' of your condition."
+                })
     except Exception as e:
         st.session_state.messages.append({"role": "bot", "content": f"Error: {str(e)}"})
 
-# --------- Move Form Handling Above Message Display ---------
-# User input
+# User input form
 with st.form(key='chat_form', clear_on_submit=True):
     user_input = st.text_input("You:", "")
     submit_button = st.form_submit_button(label='Send')
@@ -50,7 +80,7 @@ with st.form(key='chat_form', clear_on_submit=True):
 if submit_button and user_input:
     send_message(user_input)
 
-# --------- Display Messages After Handling Input ---------
+# Display conversation
 for message in st.session_state.messages:
     if message["role"] == "user":
         st.markdown(f"**You:** {message['content']}")

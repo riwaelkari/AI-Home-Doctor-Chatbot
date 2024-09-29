@@ -6,8 +6,8 @@ scikit-learn
 h5py
 python-dotenv
 numpy
-torch
 langchain
 openai
 streamlit
 ast
+chains
