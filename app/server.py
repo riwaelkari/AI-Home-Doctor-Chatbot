@@ -18,6 +18,7 @@ from langchain_community.vectorstores import FAISS
 from langchain.chains import ConversationalRetrievalChain
 from langchain_openai import ChatOpenAI
 from langchain.memory import ConversationBufferMemory  # Assuming memory is still in langchain
+from langchain.schema import AIMessage
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -43,25 +44,13 @@ vector_store = FAISS.from_texts(texts=documents, embedding=embeddings)
 
 # Initialize Chat Model with LangChain-Community
 llm = ChatOpenAI(
-    temperature=0.7, #yew sm3t shi? bekaa al aweye? hadii 5?????? 
-    model_name="gpt-4o-mini",
+    temperature=0.7,
+    model_name="gpt-4o-mini",  # Ensure you use a valid model name
     openai_api_key=openai_api_key
 )
 
 # Initialize Conversation Memory
-memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-
-# Initialize Conversational Retrieval Chain with explicit output_key
-qa_chain = ConversationalRetrievalChain.from_llm(
-    llm=llm,
-    retriever=vector_store.as_retriever(),
-    memory=memory,
-    return_source_documents=True,
-    output_key="answer"  # Explicitly set the output_key to 'answer'
-)
-
-# Set OpenAI API Key for symptom extraction GPT
-openai.api_key = os.getenv('SECRET_TOKEN')  # Ensure the API key is set in your environment variables
+memory = ConversationBufferMemory(memory_key="history", return_messages=True)
 
 # Prepare Training Data
 y_train = training_data_cleaned['prognosis_encoded']
@@ -78,25 +67,6 @@ symptom_disease_chain = SymptomDiseaseChain(
     openai_api_key=openai_api_key
 )
 
-# Function to handle detailed queries with LangChain
-def handle_detailed_query(disease, query):
-    refined_query = f"What is the {query} of {disease}?"
-    try:
-        qa_result = qa_chain.invoke({"question": refined_query})  # Use invoke instead of __call__ or run
-        answer = qa_result.get('answer', '')
-        source_documents = qa_result.get('source_documents', [])
-        return {
-            "detail": answer,
-            "sources": [doc.metadata for doc in source_documents]
-        }
-    except Exception as e:
-        logger.error(f"Error during detailed query handling: {e}")
-        return {
-            "error": f"An error occurred while fetching details: {e}"
-        }
-
-
-# Route to Handle Chat
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
@@ -107,60 +77,33 @@ def chat():
         user_message = data['messages']
         logger.info(f"Received message: {user_message}")
 
-        # Use SymptomDiseaseChain to extract symptoms and predict disease
-        prediction_result = symptom_disease_chain.predict_disease(user_message)
+         # Add user message to memory
+        memory.chat_memory.add_user_message(user_message)
 
-        if "error" in prediction_result:
-            return jsonify({
-                'gpt_response': prediction_result["error"]
-            }), 200
+        # Retrieve conversation history
+        memory_variables = memory.load_memory_variables({})
+        conversation_history = memory_variables.get('chat_history', [])
 
-        predicted_disease = prediction_result["predicted_disease"]
-        extracted_symptoms = prediction_result["extracted_symptoms"]
+        # Prepare conversation history as a formatted string
+        formatted_history = "\n".join([f"{'User' if isinstance(msg, AIMessage) else 'Bot'}: {msg.content}" for msg in conversation_history])
 
-        # Inform the user of the diagnosis and prompt for more details
-        diagnosis_message = (
-            f"You have been diagnosed with **{predicted_disease}** based on the symptoms: {', '.join(extracted_symptoms)}. "
-            "You can ask me about the 'description', 'precautions', or 'severity' of your condition."
-        )
-        logger.info(f"Diagnosis: {diagnosis_message}")
+        # Generate response using SymptomDiseaseChain
+        response_message, predicted_disease = symptom_disease_chain.generate_response(user_message, formatted_history)
 
-        return jsonify({
-            'gpt_response': diagnosis_message,
-            'predicted_disease': predicted_disease
-        }), 200
+        # Add response to memory
+        memory.chat_memory.add_ai_message(AIMessage(content=response_message))
+        # Prepare the response payload
+        response_payload = {
+            'gpt_response': response_message
+        }
+
+        if predicted_disease:
+            response_payload['predicted_disease'] = predicted_disease
+
+        return jsonify(response_payload), 200
 
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
-        return jsonify({'error': f"An unexpected error occurred: {e}"}), 500
-
-# New Route to Handle Detailed Queries with LangChain
-@app.route('/details', methods=['POST'])
-def details():
-    try:
-        data = request.get_json()
-        if not data or 'disease' not in data or 'query' not in data:
-            logger.warning("Insufficient data provided for details.")
-            return jsonify({'error': 'Insufficient data provided.'}), 400
-
-        disease = data['disease']
-        query = data['query'].lower()
-        logger.info(f"Received details request for disease: {disease}, query: {query}")
-
-        # Validate query type
-        if query not in ['description', 'precautions', 'severity']:
-            return jsonify({'error': 'Invalid query type. Please ask about "description", "precautions", or "severity".'}), 400
-
-        # Handle the detailed query using LangChain
-        detail_result = handle_detailed_query(disease, query)
-
-        return jsonify({
-            'detail': detail_result['detail'],
-            'sources': detail_result['sources']
-        }), 200
-
-    except Exception as e:
-        logger.error(f"Unexpected error in details route: {e}")
         return jsonify({'error': f"An unexpected error occurred: {e}"}), 500
 
 if __name__ == '__main__':

@@ -5,7 +5,7 @@ import requests
 from PIL import Image
 
 API_CHAT_URL = "http://127.0.0.1:5000/chat"      # Ensure Flask server is running
-API_DETAILS_URL = "http://127.0.0.1:5000/details"  # Endpoint for details
+# API_DETAILS_URL = "http://127.0.0.1:5000/details"  # Endpoint for details (if needed)
 
 st.set_page_config(page_title="Home Doctor Chatbot", page_icon="🩺")
 icon = Image.open("images/logo-1-removebg.png")
@@ -33,42 +33,19 @@ if "predicted_disease" not in st.session_state:
 def send_message(user_input):
     st.session_state.messages.append({"role": "user", "content": user_input})
     try:
-        if st.session_state.predicted_disease is None:
-            # Initial chat
-            response = requests.post(API_CHAT_URL, json={"messages": user_input})
-            if response.status_code == 200:
-                data = response.json()
-                gpt_response = data.get("gpt_response", "No response from the chatbot.")
-                st.session_state.predicted_disease = data.get("predicted_disease", None)
-                st.session_state.messages.append({
-                    "role": "bot",
-                    "content": gpt_response
-                })
-            else:
-                st.session_state.messages.append({"role": "bot", "content": "Error: Failed to get a response."})
+        response = requests.post(API_CHAT_URL, json={"messages": user_input})
+        if response.status_code == 200:
+            data = response.json()
+            gpt_response = data.get("gpt_response", "No response from the chatbot.")
+            predicted_disease = data.get("predicted_disease", None)
+            st.session_state.predicted_disease = predicted_disease
+            st.session_state.messages.append({
+                "role": "bot",
+                "content": gpt_response
+            })
         else:
-            # User is asking for details about the disease
-            query = user_input.lower()
-            if query in ['description', 'precautions', 'severity']:
-                response = requests.post(API_DETAILS_URL, json={
-                    "disease": st.session_state.predicted_disease,
-                    "query": query
-                })
-                if response.status_code == 200:
-                    data = response.json()
-                    detail = data.get("detail", "No information available.")
-                    st.session_state.messages.append({
-                        "role": "bot",
-                        "content": detail
-                    })
-                else:
-                    st.session_state.messages.append({"role": "bot", "content": "Error: Failed to retrieve details."})
-            else:
-                # Handle unexpected queries, possibly pass back to the main chat
-                st.session_state.messages.append({
-                    "role": "bot",
-                    "content": "You can ask me about the 'description', 'precautions', or 'severity' of your condition."
-                })
+            st.session_state.messages.append({"role": "bot", "content": "Error: Failed to get a response."})
+       
     except Exception as e:
         st.session_state.messages.append({"role": "bot", "content": f"Error: {str(e)}"})
 
