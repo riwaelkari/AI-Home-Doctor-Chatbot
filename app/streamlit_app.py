@@ -1,35 +1,118 @@
-# streamlit_app.py
-
 import streamlit as st
 import requests
-from PIL import Image
+import base64
 
-API_CHAT_URL = "http://127.0.0.1:5000/chat"      # Ensure Flask server is running
-# API_DETAILS_URL = "http://127.0.0.1:5000/details"  # Endpoint for details (if needed)
+API_CHAT_URL = "http://127.0.0.1:5000/chat"  # Ensure Flask server is running
 
-st.set_page_config(page_title="Home Doctor Chatbot", page_icon="🩺")
-icon = Image.open("images/logo-1-removebg.png")
+st.set_page_config(page_title="Home Doctor Chatbot", layout="wide")
 
-col1, col2 = st.columns([1, 8])  # Adjust the width ratio as needed (1:8)
+# Custom CSS for styling
+st.markdown(
+    """
+    <style>
+    body {
+        background-color: #1e1e1e;
+        color: #f1f1f1;
+    }
+    .sidebar .sidebar-content {
+        background-color: #1e1e1e;
+    }
+    .chat-bubble {
+        border-radius: 15px;
+        padding: 8px;
+        margin: 3px 0;
+        max-width: 65%;
+        display: inline-block;
+        align-items: flex-start;
+        position: relative;
+    }
+    .bot-bubble {
+        background-color: #444;
+        color: #fff;
+        text-align: left;
+        margin-left: 5px;
+    }
+    .user-bubble {
+        background-color: #831434;
+        color: #fff;
+        text-align: right;
+        margin-left: auto;
+        margin-right: 5px;
+    }
+    .chat-container {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        margin-bottom: 5px;
+    }
+    .fixed-input-container {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background-color: #f1f1f1;
+        padding: 15px;
+        box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+    }
+    .message-icon {
+        width: 40px;
+        height: 40px;
+        margin-right: 10px;
+    }
+    .chat-content {
+        display: flex;
+        flex-direction: column;
+    }
+    .sender-label {
+        font-weight: bold;
+        font-size: 0.9em;
+        margin-bottom: 3px;
+        line-height: 1;
+    }
+    .chat-display {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        overflow-y: auto;
+        padding: 0;
+        margin: 0;
+        height: calc(100vh - 200px);  /* Adjusted height to reduce the gap */
+    }
+    .chat-form-container {
+        display: flex;
+        align-items: center;
+        margin-top: 10px;
+    }
+    .text-input {
+        flex-grow: 1;
+        margin-right: 10px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-# Display the logo in the first column
-with col1:
-    st.image(icon, width=95)  # Adjust the width as needed
+# Sidebar
+st.sidebar.image("images/logo-1-removebg.png", use_column_width=True)
+st.sidebar.title("Home Doctor")
+st.sidebar.markdown("Your personal health assistant.")
 
-# Display the title in the second column
-with col2:
-    st.title("Home Doctor Chatbot")
+# Convert logo to base64 for embedding
+logo_path = "images/logo-1-removebg.png"
+with open(logo_path, "rb") as image_file:
+    logo_base64 = base64.b64encode(image_file.read()).decode()
+user_icon_path = "images/user.png"
+with open(user_icon_path, "rb") as image_file:
+    user_base64 = base64.b64encode(image_file.read()).decode()
 
-# Initialize session state to keep track of the conversation and disease
+
+# Initialize session state to keep track of the conversation
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {"role": "bot", "content": "Hello! How can I assist you today?"}
     ]
 
-if "predicted_disease" not in st.session_state:
-    st.session_state.predicted_disease = None
-
-# Function to send user input and receive response from GPT
+# Callback function for sending messages
 def send_message(user_input):
     st.session_state.messages.append({"role": "user", "content": user_input})
     try:
@@ -45,21 +128,37 @@ def send_message(user_input):
             })
         else:
             st.session_state.messages.append({"role": "bot", "content": "Error: Failed to get a response."})
-       
     except Exception as e:
         st.session_state.messages.append({"role": "bot", "content": f"Error: {str(e)}"})
 
-# User input form
-with st.form(key='chat_form', clear_on_submit=True):
-    user_input = st.text_input("You:", "")
-    submit_button = st.form_submit_button(label='Send')
+# User input using st.chat_input
+user_input = st.chat_input("You:")
 
-if submit_button and user_input:
+if user_input:
     send_message(user_input)
 
-# Display conversation
+# Display conversation with icon for the doctor
+st.markdown("<div class='chat-display'>", unsafe_allow_html=True)
 for message in st.session_state.messages:
     if message["role"] == "user":
-        st.markdown(f"**You:** {message['content']}")
+        st.markdown(f"""
+            <div class='chat-container'>
+                <img src='data:image/png;base64,{user_base64}' class='message-icon'/>
+                <div class='chat-content user-bubble chat-bubble'>
+                    <span class='sender-label'>You:</span> <span>{message['content']}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
     else:
-        st.markdown(f"**Doctor:** {message['content']}")
+        st.markdown(f"""
+            <div class='chat-container'>
+                <img src='data:image/png;base64,{logo_base64}' class='message-icon'/>
+                <div class='chat-content bot-bubble chat-bubble'>
+                    <span class='sender-label'>Doctor:</span> <span>{message['content']}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        #ok
+st.markdown("</div>", unsafe_allow_html=True)
+#Let nounou cook
+#nounou is burnt

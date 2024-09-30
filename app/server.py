@@ -8,17 +8,15 @@ import logging
 from flask_cors import CORS
 from data_processing import load_data, preprocess_data, prepare_documents
 from chains import SymptomDiseaseChain
-from utils import encode_user_symptoms_fromgpt
 import numpy as np
 import pandas as pd
-
 # Updated imports from langchain-community 
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.chains import ConversationalRetrievalChain
 from langchain_openai import ChatOpenAI
 from langchain.memory import ConversationBufferMemory  # Assuming memory is still in langchain
-from langchain.schema import AIMessage
+from langchain.schema import AIMessage,HumanMessage
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -50,13 +48,11 @@ llm = ChatOpenAI(
 )
 
 # Initialize Conversation Memory
-memory = ConversationBufferMemory(memory_key="history", return_messages=True)
-
-# Prepare Training Data
-y_train = training_data_cleaned['prognosis_encoded']
+memory = ConversationBufferMemory(memory_key="conversation_history", return_messages=True)
+X_train = training_data_cleaned.drop(columns=['prognosis', 'prognosis_encoded'])
 
 # Initialize and load the model
-model = SymptomDiseaseModel(y_train)
+model = SymptomDiseaseModel(X_train)
 model.load_model('../models/saved_model.h5')
 
 # Initialize SymptomDiseaseChain
@@ -77,21 +73,20 @@ def chat():
         user_message = data['messages']
         logger.info(f"Received message: {user_message}")
 
-         # Add user message to memory
         memory.chat_memory.add_user_message(user_message)
 
         # Retrieve conversation history
         memory_variables = memory.load_memory_variables({})
-        conversation_history = memory_variables.get('chat_history', [])
+
+        conversation_history = memory_variables.get('conversation_history', [])
 
         # Prepare conversation history as a formatted string
-        formatted_history = "\n".join([f"{'User' if isinstance(msg, AIMessage) else 'Bot'}: {msg.content}" for msg in conversation_history])
-
+        formatted_history = "\n".join([f"{'User' if isinstance(msg, HumanMessage) else 'Assistant'}: {msg.content}" for msg in conversation_history])
         # Generate response using SymptomDiseaseChain
         response_message, predicted_disease = symptom_disease_chain.generate_response(user_message, formatted_history)
-
         # Add response to memory
         memory.chat_memory.add_ai_message(AIMessage(content=response_message))
+
         # Prepare the response payload
         response_payload = {
             'gpt_response': response_message

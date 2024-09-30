@@ -8,7 +8,6 @@ import logging
 
 # Configure Logging
 logger = logging.getLogger(__name__)
-
 class SymptomDiseaseChain:
     def __init__(self, all_symptoms, disease_model, classes, openai_api_key):
         """
@@ -38,19 +37,18 @@ class SymptomDiseaseChain:
             PromptTemplate: The formatted prompt template.
         """
         template = """
-You are a friendly medical assistant. Your goal is to help users by diagnosing potential diseases based on their symptoms so ask politely for their symptoms.
+You are a friendly medical assistant. Ask the user if they are feeling unwell to give you their symptoms.
 
-Possible symptoms: {symptom_list}
+Possible symptoms (Confidential): {symptom_list}
 
 User input: {user_input}
 
-Conversation history:
-{conversation_history}
-if the user mentioned symptoms in conversation history and is adding on them (the user said, I also have or etc), get the old symptoms and add them to the new symptoms to return the list
-Extracted symptoms (as a comma-separated list).
+Conversation history: {conversation_history}
+
+Return Extracted symptoms and encode them to match the list and return them (as a comma-separated list).
 """
         return PromptTemplate(
-            input_variables=["user_input", "symptom_list"],
+            input_variables=["user_input", "symptom_list","conversation_history"],
             template=template
         )
 
@@ -64,8 +62,7 @@ Extracted symptoms (as a comma-separated list).
         template = """
 You are a friendly and empathetic home doctor. Based on the conversation history, you should notify the user with the following disease {disease}
 
-Conversation history:
-{conversation_history}
+Conversation history: {conversation_history}
 
 User input: {user_input}
 
@@ -76,7 +73,7 @@ Response:
             template=template
         )
 
-    def extract_symptoms(self, user_input):
+    def extract_symptoms(self, user_input,conversation_history):
         """
         Extracts symptoms from the user input using the LLM.
 
@@ -85,14 +82,12 @@ Response:
 
         Returns:
             list: A list of extracted symptoms.
-        """
-        # Format the prompt with user input and symptom list
+        """#
         prompt_text = self.prompt.format(
             user_input=user_input,
-            symptom_list=', '.join(self.all_symptoms)
-        )
-
-        # Get the response from the LLM
+            symptom_list=', '.join(self.all_symptoms),
+            conversation_history = conversation_history
+            )
         try:
             response = self.llm(prompt_text)
             logger.info(f"LLM Response for Symptom Extraction: {response}")
@@ -128,7 +123,6 @@ Response:
         ]
 
         logger.info(f"Extracted Symptoms: {symptoms}")
-
         return symptoms
 
     def predict_disease(self, symptoms):
@@ -153,7 +147,7 @@ Response:
             "extracted_symptoms": symptoms
         }
 
-    def generate_response(self, user_input, conversation_history):
+    def generate_response(self, user_input, conv_history):
         """
         Generates a response based on user input by extracting symptoms and predicting disease.
 
@@ -166,8 +160,7 @@ Response:
             str or None: The predicted disease if available.
         """
         # Extract symptoms from user input
-        symptoms = self.extract_symptoms(user_input)
-
+        symptoms = self.extract_symptoms(user_input,conv_history)
         if symptoms:
             # Predict disease based on extracted symptoms
             prediction_result = self.predict_disease(symptoms)
@@ -178,26 +171,21 @@ Response:
             else:
                 predicted_disease = prediction_result["predicted_disease"]
                 extracted_symptoms = prediction_result["extracted_symptoms"]
-
-                # Craft conversation history with diagnosis
-                updated_history = f"{conversation_history}\nUser: {user_input}\nBot: You have been diagnosed with **{predicted_disease}** based on the symptoms: {', '.join(extracted_symptoms)}. If you have any other concerns or symptoms, feel free to share!"
-
+                print(type(conv_history))
                 response_message = self.llm(self.response_prompt.format(
                     disease = predicted_disease,
-                    conversation_history=updated_history,
+                    conversation_history=conv_history,
                     user_input=user_input
                 ))
 
                 logger.info(f"Diagnosis and GPT-Generated Response: {response_message}")
-
         else:
             # No symptoms detected, generate a prompt to ask for symptoms
             response_message = self.llm(self.prompt.format(
-                conversation_history=conversation_history,
                 user_input=user_input,
-                symptom_list= self.all_symptoms
-            ))
+                symptom_list= self.all_symptoms,
+                conversation_history = conv_history
+            )) 
             logger.info(f"Diagnosis and GPT-Generated Response: {response_message}")
             predicted_disease = None
-        print(response_message)
         return response_message.content, predicted_disease
