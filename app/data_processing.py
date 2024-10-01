@@ -1,5 +1,13 @@
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
+import faiss
+import numpy as np
+from langchain.schema import Document
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langchain_huggingface import HuggingFaceEmbeddings 
+
+
 def load_data():
     # Adjust the paths based on your directory structure
     symptom_df = pd.read_csv('../dataset/disease_symptoms_train.csv')
@@ -9,12 +17,14 @@ def load_data():
     testing_symptoms_df = pd.read_csv('../dataset/disease_symptoms_test.csv')
     return symptom_df, description_df, precaution_df, severity_df, testing_symptoms_df
 
-def preprocess_data(symptom_df,testing_symptoms):
-    training_data_cleaned = symptom_df
+def preprocess_data(symptom_df, testing_symptoms):
     label_encoder = LabelEncoder()
+    training_data_cleaned = symptom_df.copy()  # Use copy to avoid SettingWithCopyWarning
     training_data_cleaned['prognosis_encoded'] = label_encoder.fit_transform(training_data_cleaned['prognosis'])
+    
     testing_data_cleaned = testing_symptoms.copy()
     testing_data_cleaned['prognosis_encoded'] = label_encoder.fit_transform(testing_data_cleaned['prognosis'])
+    
     classes = label_encoder.classes_.tolist()
     all_symptoms = [
     'itching', 'skin_rash', 'nodal_skin_eruptions', 'continuous_sneezing', 'shivering', 'chills',
@@ -45,94 +55,87 @@ def preprocess_data(symptom_df,testing_symptoms):
     'palpitations', 'painful_walking', 'pus_filled_pimples', 'blackheads', 'scurring',
     'skin_peeling', 'silver_like_dusting', 'small_dents_in_nails', 'inflammatory_nails', 'blister',
     'red_sore_around_nose', 'yellow_crust_ooze','fluid_overload'
-        ]    
-    return training_data_cleaned, testing_data_cleaned, classes ,all_symptoms
+    ]
+    
+    return training_data_cleaned, testing_data_cleaned, classes, all_symptoms
 
-def prepare_documents(description_df, precaution_df, severity_df, symptom_df):
-    """
-    Prepares documents by merging disease descriptions, precautions, and computing disease severity.
-
-    Args:
-        description_df (DataFrame): Disease descriptions.
-        precaution_df (DataFrame): Disease precautions.
-        severity_df (DataFrame): Symptom severity scores.
-        symptom_df (DataFrame): Disease to symptom mapping in one-hot encoding.
-
-    Returns:
-        list: A list of formatted document strings for each disease.
-    """
-    # Step 1: Standardize Column Names
-    # Rename 'Description' to 'description' for consistency
-    description_df.rename(columns={'Description': 'description'}, inplace=True)
-    
-    # Rename precaution columns to lowercase for consistency
-    precaution_df.rename(columns={
-        'Precaution_1': 'precaution_1',
-        'Precaution_2': 'precaution_2',
-        'Precaution_3': 'precaution_3',
-        'Precaution_4': 'precaution_4'
-    }, inplace=True)
-    
-    # Rename 'Symptom' to 'symptom' for consistency
-    severity_df.rename(columns={'Symptom': 'symptom'}, inplace=True)
-    
-    # Step 2: Clean `severity_df` by removing erroneous rows
-    # Remove any rows where 'symptom' is 'prognosis'
-    severity_df = severity_df[severity_df['symptom'].str.lower() != 'prognosis']
-    
-    # Step 3: Melt `symptom_df` from wide to long format
-    # Assuming 'symptom_df' has 'prognosis' and multiple symptom columns
-    symptom_melted = symptom_df.melt(id_vars=['prognosis'], var_name='symptom', value_name='present')
-    
-    # Rename 'prognosis' to 'Disease' to match other DataFrames
-    symptom_melted.rename(columns={'prognosis': 'Disease'}, inplace=True)
-    
-    # Step 4: Filter only present symptoms (where 'present' == 1)
-    disease_symptom = symptom_melted[symptom_melted['present'] == 1].copy()
-    
-    # Step 5: Merge with `severity_df` to get 'weight' for each symptom
-    disease_symptom_severity = disease_symptom.merge(severity_df, on='symptom', how='left')
-    
-    # Step 6: Handle missing severity weights by assigning a default value of 0
-    disease_symptom_severity['weight'] = disease_symptom_severity['weight'].fillna(0)
-    
-    # Step 7: Compute total severity per disease by summing symptom weights
-    disease_severity = disease_symptom_severity.groupby('Disease')['weight'].sum().reset_index()
-    disease_severity.rename(columns={'weight': 'severity'}, inplace=True)
-    
-    # Step 8: Merge `description_df` and `precaution_df` on 'Disease'
-    merged_df = description_df.merge(precaution_df, on='Disease', how='left')
-    
-    # Step 9: Merge computed `disease_severity` into `merged_df`
-    merged_df = merged_df.merge(disease_severity, on='Disease', how='left')
-    
-    # Step 10: Handle any missing severity values by assigning a default value of 0
-    merged_df['severity'] = merged_df['severity'].fillna(0)
-    
-    # Step 11: Prepare documents for each disease
+###Cast the loaded dox into a string 
+def create_documents_from_df(dataframes):
     documents = []
-    for _, row in merged_df.iterrows():
-        disease = row['Disease']
-        description = row['description']
-        precautions = row['precaution_1']
-        
-        # Append additional precautions if they exist and are not null
-        for i in range(2, 5):  # Assuming there are up to 4 precautions
-            precaution_col = f'precaution_{i}'
-            if precaution_col in row and pd.notnull(row[precaution_col]):
-                precautions += f', {row[precaution_col]}'
-        
-        severity = row['severity']
-        
-        # Format the document string
-        content = (
-            f"Disease: {disease}\n"
-            f"Description: {description}\n"
-            f"Precautions: {precautions}\n"
-            f"Severity: {severity}"
-        )
-        metadata = {"Disease": disease}
-        
-        documents.append(content)
-    
+    for df in dataframes:
+        for _, row in df.iterrows():
+            content = " ".join(row.astype(str).tolist())  # Combine row data into a string
+            documents.append(Document(page_content=content))  # Create Document objects
     return documents
+
+###splitting 
+def split_docs(documents, chunk_size=500, chunk_overlap=20):
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    docs = text_splitter.split_documents(documents)
+    return docs
+
+###create and store embeddings
+def create_embeddings(docs, embeddings_model):
+    documents_text = [doc.page_content for doc in docs]
+    embeddings_list = embeddings_model.embed_documents(documents_text)
+    return np.array(embeddings_list)
+
+
+
+def store_embeddings(embeddings, index_name="chatbot_index"):
+    # Initialize a FAISS index
+    dim = embeddings.shape[1]  # The dimension of the embeddings
+    index = faiss.IndexFlatL2(dim)  # Use L2 distance for similarity
+    index.add(embeddings)  # Add the embeddings to the index
+    faiss.write_index(index, f"{index_name}.index")  # Save the index to disk
+    return index  # Return the index for later use
+
+def get_similar_docs(query, embeddings_model, index, split_documents, k=1):
+    query_embedding = embeddings_model.embed_query(query)  # embeddings_model is the model
+    distances, indices = index.search(np.array([query_embedding]), k)  # Search
+    return [(split_documents[i], distances[0][j]) for j, i in enumerate(indices[0])]
+
+
+###test test
+if __name__ == "__main__":
+    # Load and preprocess data
+    symptom_df, description_df, precaution_df, severity_df, testing_symptoms_df = load_data()
+    # Create documents from relevant DataFrames
+    dataframes = [description_df, precaution_df, severity_df]
+    documents = create_documents_from_df(dataframes)
+    # Split the documents
+    split_documents = split_docs(documents)
+    # Create embeddings
+    embeddings_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    embeddings = create_embeddings(split_documents, embeddings_model)
+    # Store embeddings and get the index
+    index = store_embeddings(embeddings)
+
+    # Example query
+    query = "What are the severity of itching and skin rash?"
+    similar_docs = get_similar_docs(query, embeddings_model, index, split_documents)
+    print(similar_docs)
+
+
+
+
+def create_faiss_index(docs, index_name="chatbot_index"):
+    """
+    Creates FAISS index from documents and saves it.
+    
+    Args:
+        docs (list): List of Document objects to be indexed.
+        index_name (str): Name of the FAISS index file.
+        
+    Returns:
+        FAISS: LangChain FAISS vector store.
+    """
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    
+    # Use FAISS with LangChain's wrapper
+    faiss_store = FAISS.from_documents(docs, embeddings)
+    
+    # Save FAISS index for later use
+    faiss_store.save_local(index_name)
+    
+    return faiss_store

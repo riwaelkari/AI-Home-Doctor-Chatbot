@@ -37,7 +37,7 @@ class SymptomDiseaseChain:
             PromptTemplate: The formatted prompt template.
         """
         template = """
-You are a friendly medical assistant. Ask the user if they are feeling unwell to give you their symptoms.
+You are a friendly medical assistant. Ask the user if they are feeling unwell to give you their symptoms. 
 
 Possible symptoms (Confidential): {symptom_list}
 

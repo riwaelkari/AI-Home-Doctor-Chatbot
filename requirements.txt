@@ -11,3 +11,11 @@ openai
 streamlit
 ast
 chains
+langchain-community
+tiktoken 
+faiss-cpu
+langchain-openai
+streamlit_chat
+sentence-transformers
+unstructured
+langchain-huggingface

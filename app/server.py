@@ -6,7 +6,7 @@ import os
 from train_models.neural_network import SymptomDiseaseModel
 import logging
 from flask_cors import CORS
-from data_processing import load_data, preprocess_data, prepare_documents
+from data_processing import load_data, preprocess_data
 from chains import SymptomDiseaseChain
 import numpy as np
 import pandas as pd
@@ -17,6 +17,7 @@ from langchain.chains import ConversationalRetrievalChain
 from langchain_openai import ChatOpenAI
 from langchain.memory import ConversationBufferMemory  # Assuming memory is still in langchain
 from langchain.schema import AIMessage,HumanMessage
+from langchain_huggingface import HuggingFaceEmbeddings 
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -30,15 +31,8 @@ logger = logging.getLogger(__name__)
 symptom_df, description_df, precaution_df, severity_df, testing_symptoms_df = load_data()
 training_data_cleaned, testing_data_cleaned, classes, all_symptoms = preprocess_data(symptom_df, testing_symptoms_df)
 
-# Prepare Documents for LangChain
-documents = prepare_documents(description_df, precaution_df, severity_df, symptom_df)
-
 # Initialize OpenAI Embeddings
 openai_api_key = os.getenv('SECRET_TOKEN')  # Ensure this is set in your environment variables
-embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
-
-# Create FAISS Vector Store from Documents
-vector_store = FAISS.from_texts(texts=documents, embedding=embeddings)
 
 # Initialize Chat Model with LangChain-Community
 llm = ChatOpenAI(
@@ -103,3 +97,58 @@ def chat():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+
+
+### Ghrade kermel el embeddings
+
+from langchain_community.vectorstores import FAISS
+from data_processing import load_data, preprocess_data, create_documents_from_df, split_docs
+
+# Load FAISS index
+faiss_index_name = "chatbot_index"
+faiss_store = FAISS.load_local(faiss_index_name, embeddings=HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2"))
+
+# Initialize Retrieval Chain
+retrieval_chain = ConversationalRetrievalChain.from_llm(
+    llm=llm,
+    retriever=faiss_store.as_retriever(),
+    memory=memory
+)
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    try:
+        data = request.get_json()
+        if not data or 'messages' not in data:
+            logger.warning("No message provided in the request.")
+            return jsonify({'error': 'No message provided.'}), 400
+        user_message = data['messages']
+        logger.info(f"Received message: {user_message}")
+
+        # Use retrieval chain to generate response
+        response = retrieval_chain({
+            "question": user_message,
+            "chat_history": memory.chat_memory.messages
+        })
+
+        # Extract response and predicted disease (if applicable)
+        response_message = response['answer']
+        predicted_disease = response.get("predicted_disease", None)
+
+        # Add response to memory
+        memory.chat_memory.add_ai_message(AIMessage(content=response_message))
+
+        # Prepare the response payload
+        response_payload = {
+            'gpt_response': response_message
+        }
+
+        if predicted_disease:
+            response_payload['predicted_disease'] = predicted_disease
+
+        return jsonify(response_payload), 200
+
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        return jsonify({'error': f"An unexpected error occurred: {e}"}), 500
