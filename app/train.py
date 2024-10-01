@@ -27,9 +27,9 @@ def main():
     y_test = to_categorical(y_test, num_classes=num_classes)
 
     # Initialize and train the model
-    model = SymptomDiseaseModel(X_train)
+    model = SymptomDiseaseModel()
     model.train(X_train, y_train)
-    model.evaluate_model(X_test, y_test)
+    #model.evaluate_model(X_test, y_test)
     model.save_model('models/saved_model.h5')
     print("Model training and saving completed successfully.")
 if __name__ == "__main__":

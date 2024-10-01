@@ -1,21 +1,15 @@
-# server.py
-
+#server.py
 from flask import Flask, request, jsonify
-import openai
 import os
 from train_models.neural_network import SymptomDiseaseModel
 import logging
 from flask_cors import CORS
-from data_processing import load_data, preprocess_data
+from data_processing import load_data, preprocess_data,create_faiss_index,create_documents_from_df,split_docs
 from chains import SymptomDiseaseChain
-import numpy as np
-import pandas as pd
-# Updated imports from langchain-community 
-from langchain_openai import OpenAIEmbeddings
-from langchain_community.vectorstores import FAISS
+from langchain_community.vectorstores import FAISS #needs to go away
 from langchain.chains import ConversationalRetrievalChain
 from langchain_openai import ChatOpenAI
-from langchain.memory import ConversationBufferMemory  # Assuming memory is still in langchain
+from langchain.memory import ConversationBufferMemory
 from langchain.schema import AIMessage,HumanMessage
 from langchain_huggingface import HuggingFaceEmbeddings 
 
@@ -23,7 +17,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes 
 
-# Configure Logging
+# Configure Logging#doode  langchain_community.vectorstores.FAISS) is tightly coupled with the usage of pickle for saving and loading metadata alongside the FAISS index.
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -45,18 +39,29 @@ llm = ChatOpenAI(
 memory = ConversationBufferMemory(memory_key="conversation_history", return_messages=True)
 X_train = training_data_cleaned.drop(columns=['prognosis', 'prognosis_encoded'])
 
-# Initialize and load the model
-model = SymptomDiseaseModel(X_train)
-model.load_model('../models/saved_model.h5')
+dataframes = [description_df, precaution_df, severity_df]
+y_train = training_data_cleaned['prognosis_encoded']
 
-# Initialize SymptomDiseaseChain
+# Initialize and load the model
+model = SymptomDiseaseModel()
+ # Input layer 
+
+faiss_index_name = "chatbot_index"
+#dataframes = [description_df, precaution_df, severity_df]
+#documents = create_documents_from_df(dataframes)
+#split_documents = split_docs(documents)
+# Create FAISS index using your function
+#faiss_store = create_faiss_index(split_documents, index_name="chatbot_index")
+
+model.load_model("models/saved_model.h5")
 symptom_disease_chain = SymptomDiseaseChain(
     all_symptoms=all_symptoms,
     disease_model=model,
     classes=classes,
-    openai_api_key=openai_api_key
-)
-
+    openai_api_key=openai_api_key,
+    #faiss_store = faiss_store
+)#yea heard and felt
+#awiyi???????
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
@@ -97,58 +102,3 @@ def chat():
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-
-### Ghrade kermel el embeddings
-
-from langchain_community.vectorstores import FAISS
-from data_processing import load_data, preprocess_data, create_documents_from_df, split_docs
-
-# Load FAISS index
-faiss_index_name = "chatbot_index"
-faiss_store = FAISS.load_local(faiss_index_name, embeddings=HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2"))
-
-# Initialize Retrieval Chain
-retrieval_chain = ConversationalRetrievalChain.from_llm(
-    llm=llm,
-    retriever=faiss_store.as_retriever(),
-    memory=memory
-)
-
-@app.route('/chat', methods=['POST'])
-def chat():
-    try:
-        data = request.get_json()
-        if not data or 'messages' not in data:
-            logger.warning("No message provided in the request.")
-            return jsonify({'error': 'No message provided.'}), 400
-        user_message = data['messages']
-        logger.info(f"Received message: {user_message}")
-
-        # Use retrieval chain to generate response
-        response = retrieval_chain({
-            "question": user_message,
-            "chat_history": memory.chat_memory.messages
-        })
-
-        # Extract response and predicted disease (if applicable)
-        response_message = response['answer']
-        predicted_disease = response.get("predicted_disease", None)
-
-        # Add response to memory
-        memory.chat_memory.add_ai_message(AIMessage(content=response_message))
-
-        # Prepare the response payload
-        response_payload = {
-            'gpt_response': response_message
-        }
-
-        if predicted_disease:
-            response_payload['predicted_disease'] = predicted_disease
-
-        return jsonify(response_payload), 200
-
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}")
-        return jsonify({'error': f"An unexpected error occurred: {e}"}), 500

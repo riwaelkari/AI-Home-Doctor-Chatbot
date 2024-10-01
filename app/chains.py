@@ -1,20 +1,22 @@
 # chains.py
-
+from data_processing import get_similar_docs
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from utils import encode_user_symptoms_fromgpt
+from langchain_huggingface import HuggingFaceEmbeddings
+from utils import query_refiner, predict_disease, extract_symptoms
 import numpy as np
 import logging
 
 # Configure Logging
 logger = logging.getLogger(__name__)
 class SymptomDiseaseChain:
-    def __init__(self, all_symptoms, disease_model, classes, openai_api_key):
+    def __init__(self, all_symptoms, disease_model, classes, openai_api_key):#, faiss_store):
         """
         Initializes the SymptomDiseaseChain with necessary components.
 
         Args:
-            all_symptoms (list): List of all possible symptoms.
+            all_symptoms (list): List of all possible symptoms. 
             disease_model (object): Trained disease prediction model.
             classes (list): List of disease classes.
             openai_api_key (str): OpenAI API key.
@@ -28,6 +30,9 @@ class SymptomDiseaseChain:
         )
         self.prompt = self.get_symptom_extraction_prompt()
         self.response_prompt = self.get_response_generation_prompt()
+       #self.faiss_store = faiss_store  # Add FAISS store as an attribute
+        #self.embeddings_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        #self.get_info_prompt = self.return_info_prompt()
 
     def get_symptom_extraction_prompt(self):
         """
@@ -37,7 +42,7 @@ class SymptomDiseaseChain:
             PromptTemplate: The formatted prompt template.
         """
         template = """
-You are a friendly medical assistant. Ask the user if they are feeling unwell to give you their symptoms. 
+You are a friendly medical assistant. When the user first talksa to you ask the user if they are feeling unwell to give you their symptoms. 
 
 Possible symptoms (Confidential): {symptom_list}
 
@@ -60,7 +65,7 @@ Return Extracted symptoms and encode them to match the list and return them (as 
             PromptTemplate: The formatted prompt template.
         """
         template = """
-You are a friendly and empathetic home doctor. Based on the conversation history, you should notify the user with the following disease {disease}
+You are a friendly and empathetic home doctor. Based on the conversation history, you should notify the user with the following disease {disease} and then tell him he could ask about the Description and precautions of the disease, and the severity of him symptoms.
 
 Conversation history: {conversation_history}
 
@@ -72,80 +77,29 @@ Response:
             input_variables=["disease","conversation_history", "user_input"],
             template=template
         )
-
-    def extract_symptoms(self, user_input,conversation_history):
+    def return_info_prompt(self):
         """
-        Extracts symptoms from the user input using the LLM.
-
-        Args:
-            user_input (str): The user's input message.
+        Defines the prompt template for response generation.
 
         Returns:
-            list: A list of extracted symptoms.
-        """#
-        prompt_text = self.prompt.format(
-            user_input=user_input,
-            symptom_list=', '.join(self.all_symptoms),
-            conversation_history = conversation_history
-            )
-        try:
-            response = self.llm(prompt_text)
-            logger.info(f"LLM Response for Symptom Extraction: {response}")
-        except Exception as e:
-            logger.error(f"Error while getting LLM response for symptom extraction: {e}")
-            return []
-
-        # Extract text from response
-        if hasattr(response, 'content'):
-            # For AIMessage objects
-            text = response.content
-        elif isinstance(response, dict):
-            # For dictionary responses, if any
-            text = response.get('content', '')
-        elif isinstance(response, str):
-            # For string responses
-            text = response
-        else:
-            # Unexpected response type
-            logger.error(f"Unexpected response type from LLM: {type(response)}")
-            return []
-
-        logger.info(f"Extracted Text: {text}")
-
-        if text.strip().lower() == "no symptoms detected.":
-            return []
-
-        # Parse the response into a list of symptoms
-        symptoms = [
-            symptom.strip().lower()
-            for symptom in text.split(',')
-            if symptom.strip().lower() in [s.lower() for s in self.all_symptoms]
-        ]
-
-        logger.info(f"Extracted Symptoms: {symptoms}")
-        return symptoms
-
-    def predict_disease(self, symptoms):
+            PromptTemplate: The formatted prompt template.
         """
-        Predicts the disease based on the extracted symptoms.
+        template = """
+You are a friendly and empathetic home doctor. Based on the conversation history, you should give this info to the user asked for based on his symtoms and his disease {predicted_disease}
 
-        Args:
-            symptoms (list): List of extracted symptoms.
+The info you should give: {info} if you think the info is not relevant to his question based on conversation history, tell him
 
-        Returns:
-            dict: A dictionary containing the predicted disease and extracted symptoms.
-        """
-        # Step 1: Encode Symptoms and Predict Disease
-        X_input = encode_user_symptoms_fromgpt(symptoms, self.all_symptoms)
-        prediction = self.disease_model.predict(X_input)
-        predicted_disease = self.classes[np.argmax(prediction)]
+Conversation history: {conversation_history}
 
-        logger.info(f"Predicted Disease: {predicted_disease}")
+User input: {user_input}
 
-        return {
-            "predicted_disease": predicted_disease,
-            "extracted_symptoms": symptoms
-        }
+Response:
+"""
+        return PromptTemplate(
+            input_variables=["disease", "info", "conversation_history", "user_input"],
+            template=template
+        )
+    
 
     def generate_response(self, user_input, conv_history):
         """
@@ -160,17 +114,31 @@ Response:
             str or None: The predicted disease if available.
         """
         # Extract symptoms from user input
-        symptoms = self.extract_symptoms(user_input,conv_history)
+        symptoms = extract_symptoms(user_input,conv_history)
+        """
+        refined_query = query_refiner(conv_history,user_input)
+        if any(keyword in refined_query for keyword in ["description", "precautions", "severity"]):
+            similar_docs = get_similar_docs(refined_query, self.embeddings_model, self.faiss_store.index, split_documents=self.faiss_store.documents)
+            if similar_docs:
+                info = similar_docs[0][0].page_content
+            else:
+                info = "No information available regarding your query."
+            response_message = self.llm(self.prompt.format(
+                    info = info,
+                    disease = predicted_disease,
+                    conversation_history=conv_history,
+                    user_input=user_input
+            )) 
+            """
         if symptoms:
             # Predict disease based on extracted symptoms
-            prediction_result = self.predict_disease(symptoms)
+            prediction_result = predict_disease(symptoms)
 
             if "error" in prediction_result:
                 response_message = prediction_result["error"]
                 predicted_disease = None
             else:
                 predicted_disease = prediction_result["predicted_disease"]
-                extracted_symptoms = prediction_result["extracted_symptoms"]
                 print(type(conv_history))
                 response_message = self.llm(self.response_prompt.format(
                     disease = predicted_disease,

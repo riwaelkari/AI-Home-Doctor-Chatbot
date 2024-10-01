@@ -95,30 +95,6 @@ def get_similar_docs(query, embeddings_model, index, split_documents, k=1):
     distances, indices = index.search(np.array([query_embedding]), k)  # Search
     return [(split_documents[i], distances[0][j]) for j, i in enumerate(indices[0])]
 
-
-###test test
-if __name__ == "__main__":
-    # Load and preprocess data
-    symptom_df, description_df, precaution_df, severity_df, testing_symptoms_df = load_data()
-    # Create documents from relevant DataFrames
-    dataframes = [description_df, precaution_df, severity_df]
-    documents = create_documents_from_df(dataframes)
-    # Split the documents
-    split_documents = split_docs(documents)
-    # Create embeddings
-    embeddings_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    embeddings = create_embeddings(split_documents, embeddings_model)
-    # Store embeddings and get the index
-    index = store_embeddings(embeddings)
-
-    # Example query
-    query = "What are the severity of itching and skin rash?"
-    similar_docs = get_similar_docs(query, embeddings_model, index, split_documents)
-    print(similar_docs)
-
-
-
-
 def create_faiss_index(docs, index_name="chatbot_index"):
     """
     Creates FAISS index from documents and saves it.
@@ -137,5 +113,25 @@ def create_faiss_index(docs, index_name="chatbot_index"):
     
     # Save FAISS index for later use
     faiss_store.save_local(index_name)
-    
+    print(faiss_store)
     return faiss_store
+
+###test test
+if __name__ == "__main__":
+    # Load and preprocess data
+    symptom_df, description_df, precaution_df, severity_df, testing_symptoms_df = load_data()
+    # Create documents from relevant DataFrames
+    dataframes = [description_df, precaution_df, severity_df]
+    documents = create_documents_from_df(dataframes)
+    # Split the documents
+    split_documents = split_docs(documents)
+    # Create embeddings
+    embeddings_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    embeddings = create_embeddings(split_documents, embeddings_model)
+    # Store embeddings and get the index
+    index = store_embeddings(embeddings)
+    create_faiss_index(split_documents)
+
+
+
+
