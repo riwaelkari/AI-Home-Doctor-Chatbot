@@ -49,9 +49,23 @@ openai.api_key = os.getenv('SECRET_TOKEN')
 def query_refiner(conversation, query):
     response = openai.chat.completions.create(
         model="gpt-3.5-turbo",  # Updated to a valid model name
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant that refines user queries based on conversation context."},
-            {"role": "user", "content": f"Given the following user message and conversation log, formulate a question that would be the most relevant to provide the user with an answer from a knowledge base, if the user input IS NOT a query RETURN NOTHING DO nnot generate a random question, use the keywords: describe, precautions, or severity in your formulated question.\n\nCONVERSATION LOG: \n{conversation}\n\nQuery: {query}\n\nRefined Query:"}
+         messages = [{"role": "system", "content": "You are a helpful assistant that refines user queries based on the conversation context."},
+         {"role": "user", "content": f"""
+            Given the following user message and conversation log, formulate a question that would be most relevant to provide the user with an answer from a knowledge base. The refined question must:
+
+1. Mention the last predicted disease mentioned by the assistant in the conversation history.
+2. Use the format: "What is/are [description/precautions/severity] of [last predicted disease]?"
+3. If the user input is NOT a query, RETURN NOTHING. Do not generate a random question.
+
+Ensure the keywords: "description", "precautions", or "severity" are used in your formulated question.
+
+CONVERSATION LOG: 
+{conversation}
+
+User Query: 
+{query}
+
+Refined Query:"""}
         ],
         temperature=0.7,
         max_tokens=256,

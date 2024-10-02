@@ -45,16 +45,28 @@ class SymptomDiseaseChain:
             PromptTemplate: The formatted prompt template.
         """
         template = """
-You are a friendly medical assistant. When the user first talksa to you ask the user if they are feeling unwell to give you their symptoms. 
+You are a friendly medical assistant that wants to extract symptoms. Follow the steps below:
 
 Possible symptoms (Confidential): {symptom_list}
 
 User input: {user_input}
 
-Conversation history: {conversation_history}
+Conversation history: {conversation_history} (Do not explicitely mention what is said in history (such as User: ))
 
-Return Extracted symptoms and encode them to match the list and return them (as a comma-separated list).
+Steps:
+
+1. First, check the **User input ONLY**:
+   - If the user did not explicitly mention a symptom (such as asking for a description, precautions, severity, or general follow-up questions), **DO NOT PROCEED** to extract symptoms and ask the user if they are not feeling good to give you their symptoms.
+   - If the user input is related to the existing diagnosis (e.g., asking about description, precautions, severity), respond accordingly, without adding any symptoms.
+
+
+2. If the **User input** contains new symptoms:
+   - Check the **conversation history** to see if the user previously mentioned symptoms. Only add these symptoms if they were previously mentioned and if the user is adding more symptoms.
+   - Collect all symptoms, including both those in the current input and those in the conversation history, if applicable.
+
+3. Return the ONLY the encoded symptoms (matching the possible symptoms list) as a comma-separated list ONLY if the user has provided new symptoms in their input and.
 """
+
         return PromptTemplate(
             input_variables=["user_input", "symptom_list","conversation_history"],
             template=template
@@ -74,6 +86,8 @@ Conversation history: {conversation_history}
 
 User input: {user_input}
 
+Do not give the user additional info about the disease.
+
 Response:
 """
         return PromptTemplate(
@@ -88,7 +102,7 @@ Response:
             PromptTemplate: The formatted prompt template.
         """
         template = """
-You are a friendly and empathetic home doctor. Based on the conversation history, you should give this info to the user asked for based on his symtoms and his disease {predicted_disease}
+You are a friendly and empathetic home doctor. Based on the conversation history, you should give this info to the user asked for based on his symtoms and his disease (found in conversation history)
 
 The info you should give: {info} if you think the info is not relevant to his question based on conversation history, tell him
 
@@ -96,10 +110,12 @@ Conversation history: {conversation_history}
 
 User input: {user_input}
 
+Only use the info you are given.
+
 Response:
 """
         return PromptTemplate(
-            input_variables=["disease", "info", "conversation_history", "user_input"],
+            input_variables=["info", "conversation_history", "user_input"],
             template=template
         )
     def extract_symptoms(self, user_input,conversation_history):
@@ -117,6 +133,7 @@ Response:
             symptom_list=', '.join(self.all_symptoms),
             conversation_history = conversation_history
             )
+        print(user_input)
         try:
             response = self.llm.invoke(prompt_text)
             logger.info(f"LLM Response for Symptom Extraction: {response}")
@@ -143,16 +160,18 @@ Response:
 
         if text.strip().lower() == "no symptoms detected.":
             return []
-
+        print(text)
         # Parse the response into a list of symptoms
         symptoms = [
-            symptom.strip().lower()
-            for symptom in text.split(',')
-            if symptom.strip().lower() in [s.lower() for s in self.all_symptoms]
-        ]
+        symptom.strip().lower()  # Normalize the symptoms
 
+        for symptom in text.split(',')  # Split by comma to get individual symptoms
+        ]
+        print(symptoms)
         logger.info(f"Extracted Symptoms: {symptoms}")
-        return symptoms
+        valid_symptoms = [symptom for symptom in symptoms if symptom in self.all_symptoms]
+
+        return valid_symptoms
 
     def predict_disease(self, symptoms):
         """
@@ -192,23 +211,11 @@ Response:
         # Extract symptoms from user input
         symptoms = self.extract_symptoms(user_input,conv_history)
         refined_query = query_refiner(conv_history,user_input)
-        if any(keyword in refined_query for keyword in ["description", "precautions", "severity"]):
-            similar_docs = find_match(refined_query, self.faiss_index, self.faiss_store)
-            if similar_docs:
-                info = similar_docs[0][0].page_content
-            else:
-                info = "No information available regarding your query."
-            response_message = self.llm.invoke(self.prompt.format(
-                    info = info,
-                    disease = predicted_disease,
-                    conversation_history=conv_history,
-                    user_input=user_input
-            )) 
-        
+        print(refined_query)
         if symptoms:
             # Predict disease based on extracted symptoms
             prediction_result = self.predict_disease(symptoms)
-
+            print("wrong loc")
             if "error" in prediction_result:
                 response_message = prediction_result["error"]
                 predicted_disease = None
@@ -222,8 +229,23 @@ Response:
                 ))
 
                 logger.info(f"Diagnosis and GPT-Generated Response: {response_message}")
+        elif any(keyword in refined_query for keyword in ["description", "precautions", "severity"]):
+            print("entered right location")
+            similar_docs = find_match(refined_query, self.faiss_index, self.faiss_store)
+            if similar_docs:
+                info = similar_docs[0][0].page_content
+                print(info)
+            else:
+                info = "No information available regarding your query."
+            response_message = self.llm.invoke(self.get_info_prompt.format(
+                    info = info,
+                    conversation_history=conv_history,
+                    user_input=user_input
+            ))
+            predicted_disease = None
         else:
-            # No symptoms detected, generate a prompt to ask for symptoms
+            print("wrong loc 2")
+            # No symptoms or asking about info is detected, generate a prompt to ask for symptoms
             response_message = self.llm.invoke(self.prompt.format(
                 user_input=user_input,
                 symptom_list= self.all_symptoms,
