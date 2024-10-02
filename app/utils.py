@@ -4,7 +4,7 @@ import numpy as np
 import openai
 import logging
 logger = logging.getLogger(__name__)
-
+import os
 # Initialize symptom encoding and decoding
 def encode_user_symptoms(user_symptoms, all_symptoms):
     """
@@ -44,89 +44,53 @@ def decode_prediction(prediction, classes):
     predicted_disease = classes[predicted_index]
     return predicted_disease
 
+
+openai.api_key = os.getenv('SECRET_TOKEN')
 def query_refiner(conversation, query):
-
-    response = openai.Completion.create(
-    model="text-davinci-003",
-    prompt=f"Given the following user query and conversation log, formulate a question that would be the most relevant to provide the user with an answer from a knowledge base, use the keywords: describe or precautions or severity in your formulated question.\n\nCONVERSATION LOG: \n{conversation}\n\nQuery: {query}\n\nRefined Query:",
-    temperature=0.7,
-    max_tokens=256,
-    top_p=1,
-    frequency_penalty=0,
-    presence_penalty=0
+    response = openai.chat.completions.create(
+        model="gpt-3.5-turbo",  # Updated to a valid model name
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant that refines user queries based on conversation context."},
+            {"role": "user", "content": f"Given the following user message and conversation log, formulate a question that would be the most relevant to provide the user with an answer from a knowledge base, if the user input IS NOT a query RETURN NOTHING DO nnot generate a random question, use the keywords: describe, precautions, or severity in your formulated question.\n\nCONVERSATION LOG: \n{conversation}\n\nQuery: {query}\n\nRefined Query:"}
+        ],
+        temperature=0.7,
+        max_tokens=256,
+        top_p=1,
+        frequency_penalty=0,
+        presence_penalty=0
     )
-    return response['choices'][0]['text']
+    return response.choices[0].message.content
 
-def extract_symptoms(self, user_input,conversation_history):
-        """
-        Extracts symptoms from the user input using the LLM.
+from langchain_openai import OpenAIEmbeddings
 
-        Args:
-            user_input (str): The user's input message.
+def find_match(input_text, index, faiss_store, top_k=2):
+    """
+    Finds the closest matches for the given input using the FAISS index.
+    
+    Args:
+        input_text (str): The user input text to match.
+        index (faiss.Index): The FAISS index used for similarity search.
+        faiss_store (FAISS): The LangChain FAISS store containing the metadata.
+        top_k (int): Number of top matches to retrieve.
+    
+    Returns:
+        str: The combined metadata text from the top matches.
+    """
+    # Encode the input text to create an embedding
+    embeddings_model = OpenAIEmbeddings(openai_api_key=os.getenv('SECRET_TOKEN'))
+    input_embedding = np.array([embeddings_model.embed_query(input_text)])  # Embed input
 
-        Returns:
-            list: A list of extracted symptoms.
-        """#
-        prompt_text = self.prompt.format(
-            user_input=user_input,
-            symptom_list=', '.join(self.all_symptoms),
-            conversation_history = conversation_history
-            )
-        try:
-            response = self.llm(prompt_text)
-            logger.info(f"LLM Response for Symptom Extraction: {response}")
-        except Exception as e:
-            logger.error(f"Error while getting LLM response for symptom extraction: {e}")
-            return []
+    # Search the FAISS index for the closest matches
+    distances, indices = index.search(input_embedding, top_k)
 
-        # Extract text from response
-        if hasattr(response, 'content'):
-            # For AIMessage objects
-            text = response.content
-        elif isinstance(response, dict):
-            # For dictionary responses, if any
-            text = response.get('content', '')
-        elif isinstance(response, str):
-            # For string responses
-            text = response
-        else:
-            # Unexpected response type
-            logger.error(f"Unexpected response type from LLM: {type(response)}")
-            return []
+    # Retrieve metadata from the FAISS store for the top matches
+    matches = []
+    for i in range(top_k):
+        if indices[0][i] != -1:
+            document = faiss_store.docstore.search(indices[0][i])
+            if document and hasattr(document, 'page_content'):
+                matches.append(document.page_content)
 
-        logger.info(f"Extracted Text: {text}")
-
-        if text.strip().lower() == "no symptoms detected.":
-            return []
-
-        # Parse the response into a list of symptoms
-        symptoms = [
-            symptom.strip().lower()
-            for symptom in text.split(',')
-            if symptom.strip().lower() in [s.lower() for s in self.all_symptoms]
-        ]
-
-        logger.info(f"Extracted Symptoms: {symptoms}")
-        return symptoms
-
-def predict_disease(self, symptoms):
-        """
-        Predicts the disease based on the extracted symptoms.
-
-        Args:
-            symptoms (list): List of extracted symptoms.
-
-        Returns:
-            dict: A dictionary containing the predicted disease and extracted symptoms.
-        """
-        # Step 1: Encode Symptoms and Predict Disease
-        X_input = encode_user_symptoms_fromgpt(symptoms, self.all_symptoms)
-        prediction = self.disease_model.predict(X_input)
-        predicted_disease = self.classes[np.argmax(prediction)]
-
-        logger.info(f"Predicted Disease: {predicted_disease}")
-
-        return {
-            "predicted_disease": predicted_disease,
-            "extracted_symptoms": symptoms
-        }
+    # Combine the matches' content
+    result = "\n".join(matches)
+    return result

@@ -30,7 +30,7 @@ def main():
     model = SymptomDiseaseModel()
     model.train(X_train, y_train)
     #model.evaluate_model(X_test, y_test)
-    model.save_model('models/saved_model.h5')
+    model.save_model('models/saved_model.keras')
     print("Model training and saving completed successfully.")
 if __name__ == "__main__":
     main()

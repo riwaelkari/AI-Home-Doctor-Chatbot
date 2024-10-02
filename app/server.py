@@ -1,17 +1,20 @@
 #server.py
 from flask import Flask, request, jsonify
+import time
+import threading
+
 import os
 from train_models.neural_network import SymptomDiseaseModel
 import logging
 from flask_cors import CORS
-from data_processing import load_data, preprocess_data,create_faiss_index,create_documents_from_df,split_docs
+from data_processing import load_data, preprocess_data
 from chains import SymptomDiseaseChain
 from langchain_community.vectorstores import FAISS #needs to go away
 from langchain.chains import ConversationalRetrievalChain
 from langchain_openai import ChatOpenAI
+from langchain_openai import OpenAIEmbeddings
 from langchain.memory import ConversationBufferMemory
 from langchain.schema import AIMessage,HumanMessage
-from langchain_huggingface import HuggingFaceEmbeddings 
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -44,24 +47,32 @@ y_train = training_data_cleaned['prognosis_encoded']
 
 # Initialize and load the model
 model = SymptomDiseaseModel()
- # Input layer 
 
-faiss_index_name = "chatbot_index"
-#dataframes = [description_df, precaution_df, severity_df]
-#documents = create_documents_from_df(dataframes)
-#split_documents = split_docs(documents)
-# Create FAISS index using your function
-#faiss_store = create_faiss_index(split_documents, index_name="chatbot_index")
+model.load_model("models/saved_model.keras")
 
-model.load_model("models/saved_model.h5")
+
+
+print("Loading FAISS and OpenAI embeddings...")
+embeddings_model = OpenAIEmbeddings(openai_api_key=os.getenv('SECRET_TOKEN'))
+faiss_store = FAISS.load_local(
+            "chatbot_index",
+            embeddings=embeddings_model,
+            allow_dangerous_deserialization=True
+        )
+faiss_index = faiss_store.index
+print("FAISS store and index loaded successfully.")
+
+# Initialize SymptomDiseaseChain after defining delayed FAISS initialization
 symptom_disease_chain = SymptomDiseaseChain(
     all_symptoms=all_symptoms,
     disease_model=model,
     classes=classes,
     openai_api_key=openai_api_key,
-    #faiss_store = faiss_store
-)#yea heard and felt
-#awiyi???????
+    faiss_store=faiss_store,
+    faiss_index=faiss_index,
+    embeddings_model = OpenAIEmbeddings(openai_api_key=os.getenv('SECRET_TOKEN'))
+)
+
 @app.route('/chat', methods=['POST'])
 def chat():
     try:

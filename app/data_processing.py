@@ -5,8 +5,8 @@ import numpy as np
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEmbeddings 
-
+import os
+from langchain_openai import OpenAIEmbeddings
 
 def load_data():
     # Adjust the paths based on your directory structure
@@ -106,15 +106,14 @@ def create_faiss_index(docs, index_name="chatbot_index"):
     Returns:
         FAISS: LangChain FAISS vector store.
     """
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    embeddings = OpenAIEmbeddings(openai_api_key=os.getenv('SECRET_TOKEN'))
     
     # Use FAISS with LangChain's wrapper
     faiss_store = FAISS.from_documents(docs, embeddings)
     
     # Save FAISS index for later use
     faiss_store.save_local(index_name)
-    print(faiss_store)
-    return faiss_store
+    return faiss_store 
 
 ###test test
 if __name__ == "__main__":
@@ -126,12 +125,6 @@ if __name__ == "__main__":
     # Split the documents
     split_documents = split_docs(documents)
     # Create embeddings
-    embeddings_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    embeddings = create_embeddings(split_documents, embeddings_model)
-    # Store embeddings and get the index
-    index = store_embeddings(embeddings)
-    create_faiss_index(split_documents)
-
-
+    faiss_store = create_faiss_index(split_documents, index_name="chatbot_index")
 
 
