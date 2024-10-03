@@ -48,12 +48,13 @@ def decode_prediction(prediction, classes):
 openai.api_key = os.getenv('SECRET_TOKEN')
 
 
+
 def query_refiner(conversation, query):
     response = openai.chat.completions.create(
         model="gpt-3.5-turbo",  # Updated to a valid model name
          messages = [{"role": "system", "content": "You are a helpful assistant that refines user queries based on the conversation context."},
          {"role": "user", "content": f"""
-            Given the following user message and conversation log, formulate a question that would be most relevant to provide the user with an answer from a knowledge base. The refined question must:
+            Given the following user message and conversation log, formulate questions that would be most relevant to provide the user with an answer from a knowledge base. The refined question must:
 
 1. Mention the last predicted disease mentioned by the assistant in the conversation history.
 2. Use the format: "What is/are [description/precautions/severity] of [last predicted disease]?"
@@ -76,6 +77,47 @@ Refined Query:"""}
         presence_penalty=0
     )
     return response.choices[0].message.content
+
+
+def query_refiner_severity(conversation, query):
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant that refines user queries based on the conversation context."},
+            {"role": "user", "content": f"""
+                Given the following user message and conversation log, formulate questions related to symptoms mentioned in the conversation. Each question must be in the format:
+
+                "What is the severity of [symptom]?"
+
+                Instructions:
+                1. Identify all symptoms mentioned in the conversation log.
+                2. Formulate one question for each symptom, asking about its severity.
+                3. If there are no symptoms, RETURN NOTHING.
+
+                CONVERSATION LOG: 
+                {conversation}
+
+                User Query: 
+                {query}
+
+                Refined Questions:"""}
+        ],
+        temperature=0.7,
+        max_tokens=256,
+        top_p=1,
+        frequency_penalty=0,
+        presence_penalty=0
+    )
+    
+    # Convert response to a list of questions
+    questions = response.choices[0].message.content.splitlines()
+    # Remove any empty strings in the list, if present
+    questions = [q.strip() for q in questions if q.strip()]
+    
+    return questions
+
+
+
 
 from langchain_openai import OpenAIEmbeddings
 
@@ -109,3 +151,4 @@ def find_match(input_text, embeddings_model, index, faiss_store, top_k=2):
     # Combine the matches' content
     result = "\n".join(matches)
     return result
+

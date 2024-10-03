@@ -2,7 +2,7 @@
 from data_processing import get_similar_docs
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
-from utils import encode_user_symptoms_fromgpt,query_refiner, find_match
+from utils import encode_user_symptoms_fromgpt,query_refiner, find_match,query_refiner_severity
 from data_processing import get_similar_docs
 import numpy as np
 import logging
@@ -285,6 +285,7 @@ Response:
         # Extract symptoms from user input
         symptoms = self.extract_symptoms(user_input,conv_history)
         refined_query = query_refiner(conv_history,user_input)
+        print("these are the symptoms gpt has extracted if any", symptoms)
         print(refined_query)
         if symptoms:
             # Predict disease based on extracted symptoms
@@ -303,7 +304,7 @@ Response:
                 ))
 
                 logger.info(f"Diagnosis and GPT-Generated Response: {response_message}")
-        elif any(keyword in refined_query for keyword in ["description", "precautions", "severity"]):
+        elif any(keyword in refined_query for keyword in ["description", "precautions"]):
             print("entered right location")
             similar_docs = get_similar_docs(refined_query, self.embeddings_model, self.faiss_index, self.split_docs, k=2)
             if similar_docs:
@@ -317,6 +318,60 @@ Response:
                     user_input=user_input
             ))
             predicted_disease = None
+
+
+
+        elif "severity" in refined_query.lower():
+            # Use the updated query_refiner_severity function to generate severity-related questions
+            refined_severity_queries = query_refiner_severity(conv_history, user_input)
+            severity_responses = []
+
+            for severity_query in refined_severity_queries:
+                # Use get_similar_docs to retrieve information about severity
+                similar_docs = get_similar_docs(severity_query, self.embeddings_model, self.faiss_index, self.split_docs, k=1)
+                if similar_docs:
+                    info_severity = similar_docs[0][0].page_content
+                else:
+                    info_severity = "No information available regarding the severity of this symptom."
+                severity_responses.append(f"Question: {severity_query} Answer: {info_severity}")
+
+            # Combine all severity responses into a single response message
+            response_message = "\n".join(severity_responses)
+            print(response_message)
+            predicted_disease = None
+ #       elif "severity" in refined_query.lower():
+ #           refined_severity_query=query_refiner_severity(conv_history,user_input)
+  #          print("i have entered the severity part")
+   #         # If the user is asking about the severity of symptoms
+    #        print(refined_severity_query)
+            
+     #       severity_responses = []
+      #      for symptomquestion in refined_severity_query:
+       #         print("i am here 1")
+                # Use get_similar_docs to retrieve information about severity
+         #       similar_docs = get_similar_docs(symptomquestion, self.embeddings_model, self.faiss_index, self.split_docs, k=1)
+
+           #     if similar_docs:
+   #                 info_severity = similar_docs[0][0].page_content
+      #              print("this is info severity",info_severity)
+      #          else:
+       #             info_severity = "No information available regarding the severity of this symptom."
+
+ #               severity_responses.append(f"Question {symptomquestion}: .Answer: {info_severity}")
+
+#                print(severity_responses)
+
+        #    # Combine all severity responses into a single response message
+        #    response_message1 = "\n".join(severity_responses)
+        #    print(response_message1)
+       #     response_message = self.llm.invoke(self.get_info_prompt.format(
+       #             info = response_message1,
+      #              conversation_history=conv_history,
+       #             user_input=user_input
+       #     ))
+       #     predicted_disease = None
+
+
         else:
             print("wrong loc 2")
             # No symptoms or asking about info is detected, generate a prompt to ask for symptoms
