@@ -2,16 +2,15 @@
 from data_processing import get_similar_docs
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
-from utils import encode_user_symptoms_fromgpt
-from langchain_huggingface import HuggingFaceEmbeddings
-from utils import query_refiner, find_match
+from utils import encode_user_symptoms_fromgpt,query_refiner, find_match
+from data_processing import get_similar_docs
 import numpy as np
 import logging
 
 # Configure Logging
 logger = logging.getLogger(__name__)
 class SymptomDiseaseChain:
-    def __init__(self, all_symptoms, disease_model, classes, openai_api_key, faiss_store, faiss_index, embeddings_model):
+    def __init__(self, all_symptoms, disease_model, classes, openai_api_key, faiss_store, faiss_index, embeddings_model, split_docs):
         """
         Initializes the SymptomDiseaseChain with necessary components.
 
@@ -29,13 +28,34 @@ class SymptomDiseaseChain:
             openai_api_key=openai_api_key,
             model="gpt-4o-mini"
         )
-        self.prompt = self.get_symptom_extraction_prompt()
-        self.response_prompt = self.get_response_generation_prompt()
+        self.split_docs = split_docs
+        self.main_prompt = self.get_main_prompt()
+        self.symptom_extraction_prompt = self.get_symptom_extraction_prompt()
+        self.disease_prompt = self.get_disease_prompt()
+        self.get_info_prompt = self.return_info_prompt()
         self.faiss_store = faiss_store  # Add FAISS store as an attribute
         self.faiss_index = faiss_index
         self.embeddings_model = embeddings_model
-        self.get_info_prompt = self.return_info_prompt()
-        
+
+    def get_main_prompt(self):
+        """
+        Defines the prompt template for symptom extraction.
+
+        Returns:
+            PromptTemplate: The formatted prompt template.
+        """
+        template = """
+You are a friendly medical assistant at home, interact with the user {user_input} and mainly Ask him to give you his symptoms.
+
+Conversation history: {conversation_history}
+
+Answer based on Conversation history also.
+"""
+
+        return PromptTemplate(
+            input_variables=["user_input","conversation_history"],
+            template=template
+        )       
 
     def get_symptom_extraction_prompt(self):
         """
@@ -45,26 +65,67 @@ class SymptomDiseaseChain:
             PromptTemplate: The formatted prompt template.
         """
         template = """
-You are a friendly medical assistant that wants to extract symptoms. Follow the steps below:
+You are a specialized medical assistant focused solely on extracting symptoms from the user's input. Adhere strictly to the following instructions:
 
-Possible symptoms (Confidential): {symptom_list}
+**Inputs Provided:**
+- **Possible symptoms (Confidential):** {symptom_list}
+- **User input:** {user_input}
+- **Conversation history:** {conversation_history}
 
-User input: {user_input}
+**Extraction Rules:**
 
-Conversation history: {conversation_history} (Do not explicitely mention what is said in history (such as User: ))
+1. **Primary Analysis:**
+   - **Check for Symptoms in User Input:**
+     - **If the `user_input` contains one or more symptoms** from the `Possible symptoms` list:
+       - **Extract all matching symptoms** from the `user_input`.
+       - **Additionally**, extract any relevant symptoms from the `conversation_history`.
+       - **Return** a **comma-separated list** of all extracted symptoms **only**.
+     - **If the `user_input` does NOT contain any symptoms:**
+       - **Ignore the `conversation_history` entirely**. Do not extract or consider any information from it.
+       - **Return NOTHING**.
 
-Steps:
+2. **Handling Non-Symptom Queries:**
+   - **If the `user_input` is a question or statement unrelated to symptoms** (e.g., asking for descriptions, precautions, severity, greetings):
+     - **Do NOT extract or return any symptoms**, even if they are present in the `conversation_history`.
+     - **Return NOTHING**.
 
-1. First, check the **User input ONLY**:
-   - If the user did not explicitly mention a symptom (such as asking for a description, precautions, severity, or general follow-up questions), **DO NOT PROCEED** to extract symptoms and ask the user if they are not feeling good to give you their symptoms.
-   - If the user input is related to the existing diagnosis (e.g., asking about description, precautions, severity), respond accordingly, without adding any symptoms.
+**Important Guidelines:**
+- **Exclusivity:** The extraction should **only** be based on the `user_input` unless the `user_input` explicitly contains symptoms.
+- **No Inference:** Do **not** infer or extract symptoms from the `conversation_history` if the `user_input` lacks symptoms.
+- **Output Format:** **Only** return a **comma-separated list** of symptoms or **NOTHING**. **Do not** include any additional explanations, messages, or text.
+- **Case Sensitivity:** Treat symptom matching as **case-insensitive**.
+- **No Partial Matches:** Only extract complete symptom terms as listed in the `Possible symptoms`.
 
+**Example Scenarios:**
 
-2. If the **User input** contains new symptoms:
-   - Check the **conversation history** to see if the user previously mentioned symptoms. Only add these symptoms if they were previously mentioned and if the user is adding more symptoms.
-   - Collect all symptoms, including both those in the current input and those in the conversation history, if applicable.
+- **Scenario 1:**
+  - *User input:* "I've been experiencing a skin rash and itching."
+  - *Bot response:* "skin_rash, itching"
 
-3. Return the ONLY the encoded symptoms (matching the possible symptoms list) as a comma-separated list ONLY if the user has provided new symptoms in their input and.
+- **Scenario 2:**
+  - *User input:* "Can you describe the disease?"
+  - *Bot response:* ""
+
+- **Scenario 3:**
+  - *User input:* "Hello!"
+  - *Bot response:* ""
+
+- **Scenario 4:**
+  - *User input:* "I have a headache."
+  - *Conversation history:* "User: I've been experiencing a skin rash and itching."
+  - *Bot response:* "headache, skin_rash, itching"
+
+- **Scenario 5:**
+  - *User input:* "Please provide precautions."
+  - *Conversation history:* "User: I've been experiencing a skin rash and itching."
+  - *Bot response:* ""
+
+**Additional Notes:**
+- **Strict Adherence:** Ensure that these rules are followed **strictly** without exception.
+- **Avoid Ambiguity:** The model should **never** consider `conversation_history` unless the `user_input` explicitly contains symptoms.
+- **Testing:** After implementing this prompt, perform extensive testing with various user inputs to ensure consistent behavior.
+
+By implementing these stricter and more explicit instructions, the model should consistently ignore the `conversation_history` when the `user_input` doesn't contain any symptoms, regardless of previous interactions.
 """
 
         return PromptTemplate(
@@ -72,7 +133,9 @@ Steps:
             template=template
         )
 
-    def get_response_generation_prompt(self):
+
+
+    def get_disease_prompt(self):
         """
         Defines the prompt template for response generation.
 
@@ -80,7 +143,7 @@ Steps:
             PromptTemplate: The formatted prompt template.
         """
         template = """
-You are a friendly and empathetic home doctor. Based on the conversation history, you should notify the user with the following disease {disease} and then tell him he could ask about the Description and precautions of the disease, and the severity of him symptoms.
+You are a friendly and empathetic home doctor. Based on the conversation history, you should notify the user with the following disease {disease} and then tell him he could ask about the Description and precautions of the disease, and the severity of his symptoms.
 
 Conversation history: {conversation_history}
 
@@ -94,6 +157,10 @@ Response:
             input_variables=["disease","conversation_history", "user_input"],
             template=template
         )
+    
+
+
+
     def return_info_prompt(self):
         """
         Defines the prompt template for response generation.
@@ -118,6 +185,11 @@ Response:
             input_variables=["info", "conversation_history", "user_input"],
             template=template
         )
+    
+
+################################################################################
+
+
     def extract_symptoms(self, user_input,conversation_history):
         """
         Extracts symptoms from the user input using the LLM.
@@ -128,7 +200,7 @@ Response:
         Returns:
             list: A list of extracted symptoms.
         """#
-        prompt_text = self.prompt.format(
+        prompt_text = self.symptom_extraction_prompt.format(
             user_input=user_input,
             symptom_list=', '.join(self.all_symptoms),
             conversation_history = conversation_history
@@ -170,7 +242,6 @@ Response:
         print(symptoms)
         logger.info(f"Extracted Symptoms: {symptoms}")
         valid_symptoms = [symptom for symptom in symptoms if symptom in self.all_symptoms]
-
         return valid_symptoms
 
     def predict_disease(self, symptoms):
@@ -194,6 +265,9 @@ Response:
             "predicted_disease": predicted_disease,
             "extracted_symptoms": symptoms
         }
+
+
+######################################################################################
 
 
     def generate_response(self, user_input, conv_history):
@@ -222,7 +296,7 @@ Response:
             else:
                 predicted_disease = prediction_result["predicted_disease"]
                 print(type(conv_history))
-                response_message = self.llm.invoke(self.response_prompt.format(
+                response_message = self.llm.invoke(self.disease_prompt.format(
                     disease = predicted_disease,
                     conversation_history=conv_history,
                     user_input=user_input
@@ -231,12 +305,12 @@ Response:
                 logger.info(f"Diagnosis and GPT-Generated Response: {response_message}")
         elif any(keyword in refined_query for keyword in ["description", "precautions", "severity"]):
             print("entered right location")
-            similar_docs = find_match(refined_query, self.faiss_index, self.faiss_store)
+            similar_docs = get_similar_docs(refined_query, self.embeddings_model, self.faiss_index, self.split_docs, k=2)
             if similar_docs:
                 info = similar_docs[0][0].page_content
-                print(info)
             else:
                 info = "No information available regarding your query."
+            print(info)
             response_message = self.llm.invoke(self.get_info_prompt.format(
                     info = info,
                     conversation_history=conv_history,
@@ -246,9 +320,8 @@ Response:
         else:
             print("wrong loc 2")
             # No symptoms or asking about info is detected, generate a prompt to ask for symptoms
-            response_message = self.llm.invoke(self.prompt.format(
+            response_message = self.llm.invoke(self.main_prompt.format(
                 user_input=user_input,
-                symptom_list= self.all_symptoms,
                 conversation_history = conv_history
             )) 
             logger.info(f"Diagnosis and GPT-Generated Response: {response_message}")

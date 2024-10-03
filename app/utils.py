@@ -46,6 +46,8 @@ def decode_prediction(prediction, classes):
 
 
 openai.api_key = os.getenv('SECRET_TOKEN')
+
+
 def query_refiner(conversation, query):
     response = openai.chat.completions.create(
         model="gpt-3.5-turbo",  # Updated to a valid model name
@@ -77,7 +79,7 @@ Refined Query:"""}
 
 from langchain_openai import OpenAIEmbeddings
 
-def find_match(input_text, index, faiss_store, top_k=2):
+def find_match(input_text, embeddings_model, index, faiss_store, top_k=2):
     """
     Finds the closest matches for the given input using the FAISS index.
     
@@ -91,12 +93,11 @@ def find_match(input_text, index, faiss_store, top_k=2):
         str: The combined metadata text from the top matches.
     """
     # Encode the input text to create an embedding
-    embeddings_model = OpenAIEmbeddings(openai_api_key=os.getenv('SECRET_TOKEN'))
     input_embedding = np.array([embeddings_model.embed_query(input_text)])  # Embed input
-
+    print(input_embedding)
     # Search the FAISS index for the closest matches
     distances, indices = index.search(input_embedding, top_k)
-
+    print(distances, indices)
     # Retrieve metadata from the FAISS store for the top matches
     matches = []
     for i in range(top_k):
@@ -104,7 +105,7 @@ def find_match(input_text, index, faiss_store, top_k=2):
             document = faiss_store.docstore.search(indices[0][i])
             if document and hasattr(document, 'page_content'):
                 matches.append(document.page_content)
-
+    print(matches)
     # Combine the matches' content
     result = "\n".join(matches)
     return result

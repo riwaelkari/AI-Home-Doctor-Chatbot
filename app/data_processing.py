@@ -90,12 +90,12 @@ def store_embeddings(embeddings, index_name="chatbot_index"):
     faiss.write_index(index, f"{index_name}.index")  # Save the index to disk
     return index  # Return the index for later use
 
-def get_similar_docs(query, embeddings_model, index, split_documents, k=1):
+def get_similar_docs(query, embeddings_model, index, split_documents, k=2):
     query_embedding = embeddings_model.embed_query(query)  # embeddings_model is the model
     distances, indices = index.search(np.array([query_embedding]), k)  # Search
     return [(split_documents[i], distances[0][j]) for j, i in enumerate(indices[0])]
 
-def create_faiss_index(docs, index_name="chatbot_index"):
+def create_faiss_index(docs, embeddings):
     """
     Creates FAISS index from documents and saves it.
     
@@ -105,26 +105,14 @@ def create_faiss_index(docs, index_name="chatbot_index"):
         
     Returns:
         FAISS: LangChain FAISS vector store.
-    """
-    embeddings = OpenAIEmbeddings(openai_api_key=os.getenv('SECRET_TOKEN'))
-    
+    """    
     # Use FAISS with LangChain's wrapper
     faiss_store = FAISS.from_documents(docs, embeddings)
     
     # Save FAISS index for later use
-    faiss_store.save_local(index_name)
-    return faiss_store 
+    faiss_store.save_local("chatbot_index")
+    return faiss_store
 
-###test test
-if __name__ == "__main__":
-    # Load and preprocess data
-    symptom_df, description_df, precaution_df, severity_df, testing_symptoms_df = load_data()
-    # Create documents from relevant DataFrames
-    dataframes = [description_df, precaution_df, severity_df]
-    documents = create_documents_from_df(dataframes)
-    # Split the documents
-    split_documents = split_docs(documents)
-    # Create embeddings
-    faiss_store = create_faiss_index(split_documents, index_name="chatbot_index")
+
 
 
