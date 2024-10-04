@@ -60,12 +60,22 @@ def preprocess_data(symptom_df, testing_symptoms):
     return training_data_cleaned, testing_data_cleaned, classes, all_symptoms
 
 ###Cast the loaded dox into a string 
-def create_documents_from_df(dataframes):
+def create_documents_from_df(dataframes, types):
+    """
+    Create Document objects from dataframes with metadata indicating the type.
+
+    Args:
+        dataframes (list): List of pandas DataFrames.
+        types (list): List of strings indicating the type of each DataFrame.
+
+    Returns:
+        list: List of Document objects with metadata.
+    """
     documents = []
-    for df in dataframes:
+    for df, doc_type in zip(dataframes, types):
         for _, row in df.iterrows():
             content = " ".join(row.astype(str).tolist())  # Combine row data into a string
-            documents.append(Document(page_content=content))  # Create Document objects
+            documents.append(Document(page_content=content, metadata={"type": doc_type}))
     return documents
 
 ###splitting 
@@ -90,10 +100,39 @@ def store_embeddings(embeddings, index_name="chatbot_index"):
     faiss.write_index(index, f"{index_name}.index")  # Save the index to disk
     return index  # Return the index for later use
 
-def get_similar_docs(query, embeddings_model, index, split_documents, k=2):
-    query_embedding = embeddings_model.embed_query(query)  # embeddings_model is the model
-    distances, indices = index.search(np.array([query_embedding]), k)  # Search
-    return [(split_documents[i], distances[0][j]) for j, i in enumerate(indices[0])]
+def get_similar_docs(query, embeddings_model, index, split_documents, k, desired_type=None):
+    """
+    Retrieve similar documents based on the query and optionally filter by type.
+
+    Args:
+        query (str): The search query.
+        embeddings_model: The embeddings model.
+        index: The FAISS index.
+        split_documents (list): List of Document objects.
+        k (int): Number of similar documents to retrieve.
+        desired_type (str, optional): The type of documents to filter by (e.g., 'precaution').
+
+    Returns:
+        list: List of tuples containing Document objects and their distances.
+    """
+    query_embedding = embeddings_model.embed_query(query)  # Embed the query
+    distances, indices = index.search(np.array([query_embedding]), k * 2)  # Retrieve more to account for filtering
+
+    similar_docs = []
+    for j, i in enumerate(indices[0]):
+        doc = split_documents[i]
+        if desired_type:
+            if doc.metadata.get("type") == desired_type:
+                similar_docs.append((doc, distances[0][j]))
+                if len(similar_docs) == k:
+                    break
+        else:
+            similar_docs.append((doc, distances[0][j]))
+            if len(similar_docs) == k:
+                break
+
+    return similar_docs
+
 
 def create_faiss_index(docs, embeddings):
     """
@@ -113,6 +152,21 @@ def create_faiss_index(docs, embeddings):
     faiss_store.save_local("chatbot_index")
     return faiss_store
 
-
-
-
+    
+# Calculate the possible range of severity scores based on the symptom severity dataset
+def calc_severity_of_disease(list_of_symtpoms_severities):
+    severity_df = pd.read_csv('../dataset/Symptom-severity.csv')
+    min_severity_weight = severity_df['weight'].min() #1
+    max_severity_weight = severity_df['weight'].max() #7
+    average_severity = sum(list_of_symtpoms_severities)/len(list_of_symtpoms_severities)
+    # Define new threshold ranges based on the values from the dataset
+    # Here, I use the range of severity weights to divide the categories more logically
+   # def classify_severity_customized(average_severity):
+    if average_severity < min_severity_weight + 1:
+            return "Not Severe"
+    elif min_severity_weight + 1 <= average_severity < min_severity_weight + 3:
+            return "Moderate"
+    elif min_severity_weight + 3 <= average_severity < max_severity_weight:
+            return "Severe"
+    else:
+            return "Extremely Severe"

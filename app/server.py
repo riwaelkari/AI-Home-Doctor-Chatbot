@@ -47,15 +47,27 @@ y_train = training_data_cleaned['prognosis_encoded']
 
 # Initialize and load the model
 model = SymptomDiseaseModel()
-embeddings_model = OpenAIEmbeddings(openai_api_key=os.getenv('SECRET_TOKEN'))
 
 model.load_model("models/saved_model.keras")
 
-# Create FAISS index from documents
+embeddings_model = OpenAIEmbeddings(openai_api_key=os.getenv('SECRET_TOKEN'))
+
+# Check if the FAISS index already exists
+
 dataframes = [description_df, precaution_df, severity_df]
-documents = create_documents_from_df(dataframes)
+types = ["description", "precaution", "severity"]
+documents = create_documents_from_df(dataframes, types)
 split_documents = split_docs(documents)
-faiss_store = create_faiss_index(split_documents,embeddings_model)
+
+if os.path.isdir("chat_index"):
+    print("Loading existing FAISS index...")
+    faiss_store = FAISS.load_local("chat_index", embeddings_model)
+
+else:
+    print("FAISS index not found. Creating a new one...")
+    split_documents = split_docs(documents)
+    faiss_store = create_faiss_index(split_documents, embeddings_model)
+    print("FAISS index created and saved.")
 
 # Initialize SymptomDiseaseChain after defining delayed FAISS initialization
 symptom_disease_chain = SymptomDiseaseChain(

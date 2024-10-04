@@ -4,6 +4,7 @@ from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from utils import encode_user_symptoms_fromgpt,query_refiner, find_match,query_refiner_severity
 from data_processing import get_similar_docs
+from data_processing import calc_severity_of_disease
 import numpy as np
 import logging
 
@@ -20,6 +21,9 @@ class SymptomDiseaseChain:
             classes (list): List of disease classes.
             openai_api_key (str): OpenAI API key.
         """
+
+
+
         self.all_symptoms = all_symptoms
         self.disease_model = disease_model
         self.classes = classes
@@ -33,9 +37,16 @@ class SymptomDiseaseChain:
         self.symptom_extraction_prompt = self.get_symptom_extraction_prompt()
         self.disease_prompt = self.get_disease_prompt()
         self.get_info_prompt = self.return_info_prompt()
+        self.get_severity_prompt=self.return_severity_prompt()
         self.faiss_store = faiss_store  # Add FAISS store as an attribute
         self.faiss_index = faiss_index
         self.embeddings_model = embeddings_model
+
+        self.current_disease = None
+        self.current_symptoms = []
+
+
+
 
     def get_main_prompt(self):
         """
@@ -57,81 +68,41 @@ Answer based on Conversation history also.
             template=template
         )       
 
+
+
     def get_symptom_extraction_prompt(self):
-        """
-        Defines the prompt template for symptom extraction.
+            """
+            Defines the prompt template for symptom extraction.
 
-        Returns:
-            PromptTemplate: The formatted prompt template.
-        """
-        template = """
-You are a specialized medical assistant focused solely on extracting symptoms from the user's input. Adhere strictly to the following instructions:
+            Returns:
+                PromptTemplate: The formatted prompt template.
+            """
+            template = """
+    You are a specialized medical assistant focused on extracting symptoms from the user's input. Follow these instructions strictly:
 
-**Inputs Provided:**
-- **Possible symptoms (Confidential):** {symptom_list}
-- **User input:** {user_input}
-- **Conversation history:** {conversation_history}
+    Inputs Provided:
+    - Possible symptoms: {symptom_list}
+    - User input: {user_input}
+    - Conversation history: {conversation_history}
 
-**Extraction Rules:**
+    Extraction Rules:
+    1. Extract symptoms from the user input **only** if they explicitly match the possible symptoms list.
+    2. Do **not** extract symptoms from the conversation history unless they are also present in the current user input.
+    3. **If no symptoms are found in the current user input, return the exact phrase: NOTHING**.
 
-1. **Primary Analysis:**
-   - **Check for Symptoms in User Input:**
-     - **If the `user_input` contains one or more symptoms** from the `Possible symptoms` list:
-       - **Extract all matching symptoms** from the `user_input`.
-       - **Additionally**, extract any relevant symptoms from the `conversation_history`.
-       - **Return** a **comma-separated list** of all extracted symptoms **only**.
-     - **If the `user_input` does NOT contain any symptoms:**
-       - **Ignore the `conversation_history` entirely**. Do not extract or consider any information from it.
-       - **Return NOTHING**.
+    Output Format:
+    - If symptoms are found: Return a comma-separated list of symptoms (e.g., "fever, cough").
+    - If no symptoms are found: Return "NOTHING" without any additional text.
 
-2. **Handling Non-Symptom Queries:**
-   - **If the `user_input` is a question or statement unrelated to symptoms** (e.g., asking for descriptions, precautions, severity, greetings):
-     - **Do NOT extract or return any symptoms**, even if they are present in the `conversation_history`.
-     - **Return NOTHING**.
+    Ensure that you **strictly follow these instructions** without exceptions. Any deviation will lead to incorrect outcomes.
+     IMPORTANT: **please only check conversation history for additional symptoms if symptoms are provided in User input and include them in the return.
+     **PLEASE DO NOT CHECK CONVERSATION HISTORY IF there are no symptoms in User input and return the phrase: NOTHING**
+    """
 
-**Important Guidelines:**
-- **Exclusivity:** The extraction should **only** be based on the `user_input` unless the `user_input` explicitly contains symptoms.
-- **No Inference:** Do **not** infer or extract symptoms from the `conversation_history` if the `user_input` lacks symptoms.
-- **Output Format:** **Only** return a **comma-separated list** of symptoms or **NOTHING**. **Do not** include any additional explanations, messages, or text.
-- **Case Sensitivity:** Treat symptom matching as **case-insensitive**.
-- **No Partial Matches:** Only extract complete symptom terms as listed in the `Possible symptoms`.
-
-**Example Scenarios:**
-
-- **Scenario 1:**
-  - *User input:* "I've been experiencing a skin rash and itching."
-  - *Bot response:* "skin_rash, itching"
-
-- **Scenario 2:**
-  - *User input:* "Can you describe the disease?"
-  - *Bot response:* ""
-
-- **Scenario 3:**
-  - *User input:* "Hello!"
-  - *Bot response:* ""
-
-- **Scenario 4:**
-  - *User input:* "I have a headache."
-  - *Conversation history:* "User: I've been experiencing a skin rash and itching."
-  - *Bot response:* "headache, skin_rash, itching"
-
-- **Scenario 5:**
-  - *User input:* "Please provide precautions."
-  - *Conversation history:* "User: I've been experiencing a skin rash and itching."
-  - *Bot response:* ""
-
-**Additional Notes:**
-- **Strict Adherence:** Ensure that these rules are followed **strictly** without exception.
-- **Avoid Ambiguity:** The model should **never** consider `conversation_history` unless the `user_input` explicitly contains symptoms.
-- **Testing:** After implementing this prompt, perform extensive testing with various user inputs to ensure consistent behavior.
-
-By implementing these stricter and more explicit instructions, the model should consistently ignore the `conversation_history` when the `user_input` doesn't contain any symptoms, regardless of previous interactions.
-"""
-
-        return PromptTemplate(
-            input_variables=["user_input", "symptom_list","conversation_history"],
-            template=template
-        )
+            return PromptTemplate(
+                input_variables=["user_input", "symptom_list","conversation_history"],
+                template=template
+            )
 
 
 
@@ -160,33 +131,56 @@ Response:
     
 
 
-
     def return_info_prompt(self):
-        """
-        Defines the prompt template for response generation.
-
-        Returns:
-            PromptTemplate: The formatted prompt template.
-        """
         template = """
-You are a friendly and empathetic home doctor. Based on the conversation history, you should give this info to the user asked for based on his symtoms and his disease (found in conversation history)
+You are a friendly and empathetic home doctor. Based on the conversation history and the currently diagnosed disease "{disease}", you should provide the following information exactly as it is provided below.
 
-The info you should give: {info} if you think the info is not relevant to his question based on conversation history, tell him
+**Provided Information:**
+{info}
 
-Conversation history: {conversation_history}
+**Conversation History:** 
+{conversation_history}
 
-User input: {user_input}
+**User Input:** 
+{user_input}
 
-Only use the info you are given.
+**Instructions:**
+1. Analyze the user's input to determine if the question is about the "description" or "precautions" of the disease.
+2. 
+    - If the user is asking for a **description**, provide a clear and concise description of the disease using the provided information.
+    - If the user is asking for **precautions**, list the **four (4)** most relevant precautions as bullet points.
+3. **Do not** include any information that is not present in the **Provided Information** section.
+4. Ensure that your response is well-formatted, clear, and directly addresses the user's query.
 
-Response:
+**Response:**
 """
         return PromptTemplate(
-            input_variables=["info", "conversation_history", "user_input"],
+            input_variables=["info", "conversation_history", "user_input", "disease"],
             template=template
         )
-    
 
+        
+    def return_severity_prompt(self):
+        template = """
+        You are a friendly and empathetic home doctor. Based on the conversation history and the currently diagnosed disease {disease}, you should provide the following severity information exactly as it is provided below.
+
+        Severity Level: {real_severity}
+
+        If you think the severity information is not relevant to the user's question based on the conversation history, inform them accordingly.
+
+        **Use only the provided severity information below in your answer and be brief:**
+
+        **Conversation history:**
+        {conversation_history}
+
+        **User input:**
+        {user_input}
+
+        """
+        return PromptTemplate(
+            input_variables=["conversation_history", "user_input", "disease", "real_severity"],
+            template=template
+        )
 ################################################################################
 
 
@@ -259,6 +253,10 @@ Response:
         prediction = self.disease_model.predict(X_input)
         predicted_disease = self.classes[np.argmax(prediction)]
 
+
+        self.current_disease = predicted_disease
+        self.current_symptoms = symptoms
+
         logger.info(f"Predicted Disease: {predicted_disease}")
 
         return {
@@ -284,18 +282,26 @@ Response:
         """
         # Extract symptoms from user input
         symptoms = self.extract_symptoms(user_input,conv_history)
-        refined_query = query_refiner(conv_history,user_input)
+        print("symptoms are (if any)", symptoms)
+        refined_query = query_refiner(user_input,self.current_disease)
         print("these are the symptoms gpt has extracted if any", symptoms)
         print(refined_query)
         if symptoms:
             # Predict disease based on extracted symptoms
             prediction_result = self.predict_disease(symptoms)
+        
             print("wrong loc")
             if "error" in prediction_result:
                 response_message = prediction_result["error"]
+
                 predicted_disease = None
             else:
                 predicted_disease = prediction_result["predicted_disease"]
+                #conv_history += f"\nPredicted Disease: {predicted_disease}"
+                #conv_history += f"\nExtracted Symptoms: {', '.join(symptoms)}"
+
+                # Update conversation history with disease and symptoms
+   
                 print(type(conv_history))
                 response_message = self.llm.invoke(self.disease_prompt.format(
                     disease = predicted_disease,
@@ -306,7 +312,11 @@ Response:
                 logger.info(f"Diagnosis and GPT-Generated Response: {response_message}")
         elif any(keyword in refined_query for keyword in ["description", "precautions"]):
             print("entered right location")
-            similar_docs = get_similar_docs(refined_query, self.embeddings_model, self.faiss_index, self.split_docs, k=2)
+            if "description" in refined_query.lower():
+                desired_section = "description"
+            elif "precautions" in refined_query.lower():
+                desired_section = "precaution"
+            similar_docs = get_similar_docs(refined_query, self.embeddings_model, self.faiss_index, self.split_docs, k=1,desired_type=desired_section)
             if similar_docs:
                 info = similar_docs[0][0].page_content
             else:
@@ -315,62 +325,47 @@ Response:
             response_message = self.llm.invoke(self.get_info_prompt.format(
                     info = info,
                     conversation_history=conv_history,
-                    user_input=user_input
+                    user_input=user_input,
+                    disease=self.current_disease  # Pass the current disease
             ))
             predicted_disease = None
 
 
 
         elif "severity" in refined_query.lower():
+            print("wrong loc bad")
             # Use the updated query_refiner_severity function to generate severity-related questions
             refined_severity_queries = query_refiner_severity(conv_history, user_input)
             severity_responses = []
+            list_severity = []
+            info_number=0
 
             for severity_query in refined_severity_queries:
                 # Use get_similar_docs to retrieve information about severity
-                similar_docs = get_similar_docs(severity_query, self.embeddings_model, self.faiss_index, self.split_docs, k=1)
+                similar_docs = get_similar_docs(severity_query, self.embeddings_model, self.faiss_index, self.split_docs, k=1, desired_type="severity")
                 if similar_docs:
                     info_severity = similar_docs[0][0].page_content
+                    info_number=info_severity[-1]
+                    
                 else:
                     info_severity = "No information available regarding the severity of this symptom."
+                    info_number = 0
+                print(info_number)
                 severity_responses.append(f"Question: {severity_query} Answer: {info_severity}")
-
+                list_severity.append(int(info_number))
+                print(list_severity)
+            real_severity="" 
+            real_severity = calc_severity_of_disease(list_severity)
             # Combine all severity responses into a single response message
-            response_message = "\n".join(severity_responses)
-            print(response_message)
+            response_message1 = "\n".join(severity_responses)
+            print(response_message1)
+            response_message = self.llm.invoke(self.get_severity_prompt.format(
+                    conversation_history=conv_history,
+                    user_input=user_input,
+                    disease=self.current_disease,
+                    real_severity=real_severity  # Pass the current disease
+            ))
             predicted_disease = None
- #       elif "severity" in refined_query.lower():
- #           refined_severity_query=query_refiner_severity(conv_history,user_input)
-  #          print("i have entered the severity part")
-   #         # If the user is asking about the severity of symptoms
-    #        print(refined_severity_query)
-            
-     #       severity_responses = []
-      #      for symptomquestion in refined_severity_query:
-       #         print("i am here 1")
-                # Use get_similar_docs to retrieve information about severity
-         #       similar_docs = get_similar_docs(symptomquestion, self.embeddings_model, self.faiss_index, self.split_docs, k=1)
-
-           #     if similar_docs:
-   #                 info_severity = similar_docs[0][0].page_content
-      #              print("this is info severity",info_severity)
-      #          else:
-       #             info_severity = "No information available regarding the severity of this symptom."
-
- #               severity_responses.append(f"Question {symptomquestion}: .Answer: {info_severity}")
-
-#                print(severity_responses)
-
-        #    # Combine all severity responses into a single response message
-        #    response_message1 = "\n".join(severity_responses)
-        #    print(response_message1)
-       #     response_message = self.llm.invoke(self.get_info_prompt.format(
-       #             info = response_message1,
-      #              conversation_history=conv_history,
-       #             user_input=user_input
-       #     ))
-       #     predicted_disease = None
-
 
         else:
             print("wrong loc 2")
@@ -381,4 +376,4 @@ Response:
             )) 
             logger.info(f"Diagnosis and GPT-Generated Response: {response_message}")
             predicted_disease = None
-        return response_message.content, predicted_disease
+        return response_message.content, predicted_disease #,conv_history

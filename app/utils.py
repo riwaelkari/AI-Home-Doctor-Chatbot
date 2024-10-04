@@ -1,5 +1,4 @@
 # app/utils.py
-import torch
 import numpy as np
 import openai
 import logging
@@ -49,26 +48,32 @@ openai.api_key = os.getenv('SECRET_TOKEN')
 
 
 
-def query_refiner(conversation, query):
+def query_refiner(query, disease):
     response = openai.chat.completions.create(
-        model="gpt-3.5-turbo",  # Updated to a valid model name
-         messages = [{"role": "system", "content": "You are a helpful assistant that refines user queries based on the conversation context."},
-         {"role": "user", "content": f"""
-            Given the following user message and conversation log, formulate questions that would be most relevant to provide the user with an answer from a knowledge base. The refined question must:
+        model="gpt-3.5-turbo",  # Ensure this is the desired model
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a helpful assistant that refines user queries based on the conversation context."
+            },
+            {
+                "role": "user",
+                "content": f"""
+Given the following user message, formulate questions that would be most relevant to provide the user with an answer from a knowledge base. The refined question must:
+User Query: 
+{query}
 
-1. Mention the last predicted disease mentioned by the assistant in the conversation history.
-2. Use the format: "What is/are [description/precautions/severity] of [last predicted disease]?"
+Check user query for any of the three words [description/precautions/severity] and generate the question based on the following:
+
+1. Use the format: "What is/are [description/precautions/severity] of {disease}?"
+2. {disease} is the variable disease given to you.
 3. If the user input is NOT a query, RETURN NOTHING. Do not generate a random question.
 
 Ensure the keywords: "description", "precautions", or "severity" are used in your formulated question.
 
-CONVERSATION LOG: 
-{conversation}
 
-User Query: 
-{query}
-
-Refined Query:"""}
+Refined Query:"""
+            }
         ],
         temperature=0.7,
         max_tokens=256,
@@ -76,11 +81,10 @@ Refined Query:"""}
         frequency_penalty=0,
         presence_penalty=0
     )
-    return response.choices[0].message.content
-
+    return response.choices[0].message.content.strip()
 
 def query_refiner_severity(conversation, query):
-    response = openai.ChatCompletion.create(
+    response = openai.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "You are a helpful assistant that refines user queries based on the conversation context."},
@@ -90,7 +94,7 @@ def query_refiner_severity(conversation, query):
                 "What is the severity of [symptom]?"
 
                 Instructions:
-                1. Identify all symptoms mentioned in the conversation log.
+                1. Identify all symptoms mentioned in the conversation log refering to the last query.
                 2. Formulate one question for each symptom, asking about its severity.
                 3. If there are no symptoms, RETURN NOTHING.
 
