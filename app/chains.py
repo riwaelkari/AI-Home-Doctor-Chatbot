@@ -84,14 +84,13 @@ Answer based on Conversation history also.
     - Possible symptoms: {symptom_list}
     - User input: {user_input}
     - Conversation history: {conversation_history}
-
+    **DO DIRECTLY: If there are no symptoms in User input ALONE DIRECTLY RETURN NOTHING AND DO NOT READ THE FOLLOWING STEPS.**
     Extraction Rules:
-    1. Extract symptoms from the user input **only** if they explicitly match the possible symptoms list.
-    2. Do **not** extract symptoms from the conversation history unless they are also present in the current user input.
-    3. **If no symptoms are found in the current user input, return the exact phrase: NOTHING**.
+    1. Do **not** extract symptoms from the conversation history unless there are symptoms in User inpurt
+    2. **If no symptoms are found in the current user input, return the exact phrase: NOTHING**.
 
     Output Format:
-    - If symptoms are found: Return a comma-separated list of symptoms (e.g., "fever, cough").
+    - If symptoms are found IN USER INPUT: Return a comma-separated list of symptoms including the ones in conversation histroy (e.g., "fever, cough").
     - If no symptoms are found: Return "NOTHING" without any additional text.
 
     Ensure that you **strictly follow these instructions** without exceptions. Any deviation will lead to incorrect outcomes.
@@ -148,7 +147,7 @@ You are a friendly and empathetic home doctor. Based on the conversation history
 1. Analyze the user's input to determine if the question is about the "description" or "precautions" of the disease.
 2. 
     - If the user is asking for a **description**, provide a clear and concise description of the disease using the provided information.
-    - If the user is asking for **precautions**, list the **four (4)** most relevant precautions as bullet points.
+    - If the user is asking for **precautions**, list the **four (4)** most relevant precautions as (Dotted) bullet points under each other.
 3. **Do not** include any information that is not present in the **Provided Information** section.
 4. Ensure that your response is well-formatted, clear, and directly addresses the user's query.
 
