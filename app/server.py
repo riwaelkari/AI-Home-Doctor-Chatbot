@@ -4,7 +4,7 @@ import time
 import threading
 
 import os
-from train_models.neural_network import SymptomDiseaseModel
+from train_models.symptom_disease_model import SymptomDiseaseModel
 import logging
 from flask_cors import CORS
 from data_processing import load_data, preprocess_data,create_documents_from_df,split_docs,create_faiss_index
@@ -48,7 +48,7 @@ y_train = training_data_cleaned['prognosis_encoded']
 # Initialize and load the model
 model = SymptomDiseaseModel()
 
-model.load_model("models/saved_model.keras")
+model.load_model()
 
 embeddings_model = OpenAIEmbeddings(openai_api_key=os.getenv('SECRET_TOKEN'))
 
@@ -59,21 +59,13 @@ types = ["description", "precaution", "severity"]
 documents = create_documents_from_df(dataframes, types)
 split_documents = split_docs(documents)
 
-if os.path.isdir("chat_index"):
-    print("Loading existing FAISS index...")
-    faiss_store = FAISS.load_local("chat_index", embeddings_model)
-
-else:
-    print("FAISS index not found. Creating a new one...")
-    split_documents = split_docs(documents)
-    faiss_store = create_faiss_index(split_documents, embeddings_model)
-    print("FAISS index created and saved.")
+print("Loading existing FAISS index...")
+faiss_store = create_faiss_index(split_documents, embeddings_model)
 
 # Initialize SymptomDiseaseChain after defining delayed FAISS initialization
 symptom_disease_chain = SymptomDiseaseChain(
     all_symptoms=all_symptoms,
     disease_model=model,
-    classes=classes,
     openai_api_key=openai_api_key,
     faiss_store=faiss_store,
     faiss_index=faiss_store.index,

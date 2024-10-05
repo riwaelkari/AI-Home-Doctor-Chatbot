@@ -2,8 +2,9 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 
-import numpy as np
 
+import numpy as np
+"""
 class SymptomDiseaseModel:
     def __init__(self):
         self.model = Sequential()
@@ -25,7 +26,7 @@ class SymptomDiseaseModel:
         self.model.save(filepath)
 
     def load_model(self, filepath):
-        """
-        Loads a trained model from a file.
-        """
+
         self.model = tf.keras.models.load_model(filepath)
+
+"""

@@ -156,3 +156,15 @@ def find_match(input_text, embeddings_model, index, faiss_store, top_k=2):
     result = "\n".join(matches)
     return result
 
+def string_to_list(s):
+
+    # Remove the square brackets if present
+    s = s.strip('[]')
+
+    # Split the string by commas
+    items = s.split(',')
+
+    # Strip whitespace and quotes from each item
+    items = [item.strip(" '\"") for item in items]
+
+    return items

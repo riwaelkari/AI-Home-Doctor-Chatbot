@@ -1,10 +1,9 @@
 # scripts/train.py
 import numpy as np
-from tensorflow.keras.utils import to_categorical
+import joblib
 from sklearn.preprocessing import LabelEncoder
-from train_models.neural_network import SymptomDiseaseModel
+from sklearn.neighbors import KNeighborsClassifier
 from data_processing import load_data, preprocess_data
-
 
 def main():
     # Load and preprocess data
@@ -16,21 +15,20 @@ def main():
 
     # Split features and labels
     X_train = training_data_cleaned.drop(columns=['prognosis', 'prognosis_encoded'])
-    y_train = training_data_cleaned['prognosis_encoded']
-    X_test = testing_data_cleaned.drop(columns=['prognosis', 'prognosis_encoded'])
-    y_test = testing_data_cleaned['prognosis_encoded']
+    y_train = training_data_cleaned['prognosis']
 
+    # Encode the target variable
+    le = LabelEncoder()
+    y_train_encoded = le.fit_transform(y_train)
 
-    # Make sure y_train and y_test are one-hot encoded
-    num_classes = len(np.unique(y_train))  # Number of unique diseases
-    y_train = to_categorical(y_train, num_classes=num_classes)
-    y_test = to_categorical(y_test, num_classes=num_classes)
+    # Initialize and train the KNN model with k=3
+    model = KNeighborsClassifier(n_neighbors=3, weights='uniform', metric='euclidean')
+    model.fit(X_train, y_train_encoded)
 
-    # Initialize and train the model
-    model = SymptomDiseaseModel()
-    model.train(X_train, y_train)
-    #model.evaluate_model(X_test, y_test)
-    model.save_model('models/saved_model.keras')
+    # Save the trained model and the label encoder
+    joblib.dump(model, 'models/knn_model.pkl')
+    joblib.dump(le, 'models/label_encoder.pkl')
     print("Model training and saving completed successfully.")
+
 if __name__ == "__main__":
     main()

@@ -19,3 +19,4 @@ streamlit_chat
 sentence-transformers
 unstructured
 langchain-huggingface
+mlflow
