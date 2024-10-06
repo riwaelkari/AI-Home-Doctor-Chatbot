@@ -13,17 +13,17 @@ def main():
     print(f"Training Data Shape: {training_data_cleaned.shape}")
     print(f"Testing Data Shape: {testing_data_cleaned.shape}")
 
+    training_data_cleaned = training_data_cleaned.sample(frac=1, random_state=42).reset_index(drop=True)
+
     # Split features and labels
     X_train = training_data_cleaned.drop(columns=['prognosis', 'prognosis_encoded'])
     y_train = training_data_cleaned['prognosis']
 
     # Encode the target variable
     le = LabelEncoder()
-    y_train_encoded = le.fit_transform(y_train)
-
     # Initialize and train the KNN model with k=3
     model = KNeighborsClassifier(n_neighbors=3, weights='uniform', metric='euclidean')
-    model.fit(X_train, y_train_encoded)
+    model.fit(X_train, y_train)
 
     # Save the trained model and the label encoder
     joblib.dump(model, 'models/knn_model.pkl')

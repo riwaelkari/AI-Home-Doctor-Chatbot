@@ -48,6 +48,8 @@ y_train = training_data_cleaned['prognosis_encoded']
 # Initialize and load the model
 model = SymptomDiseaseModel()
 
+model.set_additional_attributes(all_symptoms,y_train)
+
 model.load_model()
 
 embeddings_model = OpenAIEmbeddings(openai_api_key=os.getenv('SECRET_TOKEN'))
@@ -59,7 +61,7 @@ types = ["description", "precaution", "severity"]
 documents = create_documents_from_df(dataframes, types)
 split_documents = split_docs(documents)
 
-print("Loading existing FAISS index...")
+print("Creating FAISS index...")
 faiss_store = create_faiss_index(split_documents, embeddings_model)
 
 # Initialize SymptomDiseaseChain after defining delayed FAISS initialization

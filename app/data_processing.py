@@ -21,7 +21,7 @@ def preprocess_data(symptom_df, testing_symptoms):
     label_encoder = LabelEncoder()
     training_data_cleaned = symptom_df.copy()  # Use copy to avoid SettingWithCopyWarning
     training_data_cleaned['prognosis_encoded'] = label_encoder.fit_transform(training_data_cleaned['prognosis'])
-    
+
     testing_data_cleaned = testing_symptoms.copy()
     testing_data_cleaned['prognosis_encoded'] = label_encoder.fit_transform(testing_data_cleaned['prognosis'])
     
@@ -170,3 +170,14 @@ def calc_severity_of_disease(list_of_symtpoms_severities):
             return "Severe"
     else:
             return "Extremely Severe"
+def get_diseases_by_symptoms(symptoms, symptom_df):
+    symptom_df = pd.read_csv('../dataset/disease_symptoms_train.csv')
+    df = symptom_df.copy()
+    for symptom in symptoms:
+        if symptom in df.columns:
+            df = df[df[symptom] == 1]
+        else:
+            # Symptom not in columns, so no diseases have it
+            return []
+    diseases = df['prognosis'].unique().tolist()
+    return diseases

@@ -1,10 +1,10 @@
+"""
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 
 
 import numpy as np
-"""
 class SymptomDiseaseModel:
     def __init__(self):
         self.model = Sequential()

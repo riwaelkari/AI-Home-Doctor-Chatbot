@@ -68,7 +68,7 @@ Check user query for any of the three words [description/precautions/severity] a
 1. Use the format: "What is/are [description/precautions/severity] of {disease}?"
 2. {disease} is the variable disease given to you.
 3. If the user input is NOT a query, RETURN NOTHING. Do not generate a random question.
-
+**4. if the input is not related to describing or precautions or severity of a disease RETURN NOTHING**
 Ensure the keywords: "description", "precautions", or "severity" are used in your formulated question.
 
 

@@ -20,3 +20,4 @@ sentence-transformers
 unstructured
 langchain-huggingface
 mlflow
+joblib
