@@ -3,7 +3,7 @@ from data_processing import get_similar_docs
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from utils import encode_user_symptoms_fromgpt,query_refiner, find_match,query_refiner_severity
-from data_processing import get_similar_docs
+from data_processing import get_similar_docs,get_diseases_by_symptoms
 from data_processing import calc_severity_of_disease
 import numpy as np
 import logging
@@ -112,21 +112,27 @@ Answer based on Conversation history also.
             PromptTemplate: The formatted prompt template.
         """
         template = """
-You are a friendly and empathetic home doctor. Based on the conversation history, you should notify the user with the following disease {disease} and then tell him he could ask about the Description and precautions of the disease, and the severity of his symptoms.
 
-Conversation history: {conversation_history}
+    You are a friendly and empathetic home doctor. Based on the conversation history, you should notify the user that they might have {disease}. Then tell them they could ask about the Description and precautions of the disease, and the severity of their symptoms.
 
-User input: {user_input}
+    Number of diseases that include the user's symptoms: {n}
 
-Do not give the user additional info about the disease.
+    If the number of diseases that include the user's symptoms is greater than 1, tell the user to give more symptoms to not get misdiagnosed otherwise do not mention the problem at all. DO NOT EXPLICITLY MENTION THE NUMBER OF MATCHING DISEASES
 
-Response:
-"""
+    **Be reasonable  with the number i gave you and answer with importance based on the number**, meaning if the number is 1 dont mention to the user anything, if its 2 or 3 tell him he might get misdiagnosed, if its higher increase the caution of the message
+
+    Conversation history: {conversation_history}
+
+    User input: {user_input}
+
+    Do not give the user additional info about the diseases.
+
+    Response:
+    """
         return PromptTemplate(
-            input_variables=["disease","conversation_history", "user_input"],
+            input_variables=["disease", "n", "conversation_history", "user_input"],
             template=template
         )
-    
 
 
     def return_info_prompt(self):
@@ -273,11 +279,16 @@ You are a friendly and empathetic home doctor. Based on the conversation history
                 # Update conversation history with disease and symptoms
             #n = matching_disease_fre(symptoms,....)
             print(type(conv_history))
+            n=get_diseases_by_symptoms(symptoms)
+            print(n)
             response_message = self.llm.invoke(self.disease_prompt.format(
-                    disease = predicted_disease,
-                    conversation_history=conv_history,
-                    user_input=user_input
-                ))
+                disease=predicted_disease,
+                n=n,
+                conversation_history=conv_history,
+                user_input=user_input
+            ))
+
+            
             logger.info(f"Diagnosis and GPT-Generated Response: {response_message}")
         elif any(keyword in refined_query for keyword in ["description", "precautions"]):
             print("entered right location")
@@ -347,7 +358,6 @@ You are a friendly and empathetic home doctor. Based on the conversation history
             predicted_disease = None
         return response_message.content, predicted_disease
     
-
 
 
 

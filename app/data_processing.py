@@ -170,7 +170,7 @@ def calc_severity_of_disease(list_of_symtpoms_severities):
             return "Severe"
     else:
             return "Extremely Severe"
-def get_diseases_by_symptoms(symptoms, symptom_df):
+def get_diseases_by_symptoms(symptoms):
     symptom_df = pd.read_csv('../dataset/disease_symptoms_train.csv')
     df = symptom_df.copy()
     for symptom in symptoms:
@@ -180,4 +180,5 @@ def get_diseases_by_symptoms(symptoms, symptom_df):
             # Symptom not in columns, so no diseases have it
             return []
     diseases = df['prognosis'].unique().tolist()
-    return diseases
+    return len(diseases)
+
