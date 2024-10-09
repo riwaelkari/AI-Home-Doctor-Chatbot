@@ -21,3 +21,4 @@ unstructured
 langchain-huggingface
 mlflow
 joblib
+guardrails-ai

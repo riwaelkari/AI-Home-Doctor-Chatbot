@@ -1,16 +1,15 @@
 # chains.py
-from data_processing import get_similar_docs
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
-from utils import encode_user_symptoms_fromgpt,query_refiner, find_match,query_refiner_severity
-from data_processing import get_similar_docs,get_diseases_by_symptoms
-from data_processing import calc_severity_of_disease
+from ..utils import encode_user_symptoms_fromgpt,query_refiner, find_match,query_refiner_severity
+from ..data_processing import get_similar_docs,get_diseases_by_symptoms,calc_severity_of_disease
 import numpy as np
 import logging
+from .base_chains import BaseChain
 
 # Configure Logging
 logger = logging.getLogger(__name__)
-class SymptomDiseaseChain:
+class SymptomDiseaseChain(BaseChain):
     def __init__(self, all_symptoms, disease_model, openai_api_key, faiss_store, faiss_index, embeddings_model, split_docs):
         """
         Initializes the SymptomDiseaseChain with necessary components.

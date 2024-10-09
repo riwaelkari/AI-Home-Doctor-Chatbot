@@ -1,3 +1,4 @@
+#data_processing.py
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 import faiss
@@ -10,11 +11,11 @@ from langchain_openai import OpenAIEmbeddings
 
 def load_data():
     # Adjust the paths based on your directory structure
-    symptom_df = pd.read_csv('../dataset/disease_symptoms_train.csv')
-    description_df = pd.read_csv('../dataset/symptom_Description.csv')
-    precaution_df = pd.read_csv('../dataset/symptom_precaution.csv')
-    severity_df = pd.read_csv('../dataset/Symptom-severity.csv')
-    testing_symptoms_df = pd.read_csv('../dataset/disease_symptoms_test.csv')
+    symptom_df = pd.read_csv('dataset/disease_symptoms_train.csv')
+    description_df = pd.read_csv('dataset/symptom_Description.csv')
+    precaution_df = pd.read_csv('dataset/symptom_precaution.csv')
+    severity_df = pd.read_csv('dataset/Symptom-severity.csv')
+    testing_symptoms_df = pd.read_csv('dataset/disease_symptoms_test.csv')
     return symptom_df, description_df, precaution_df, severity_df, testing_symptoms_df
 
 def preprocess_data(symptom_df, testing_symptoms):
@@ -57,7 +58,7 @@ def preprocess_data(symptom_df, testing_symptoms):
     'red_sore_around_nose', 'yellow_crust_ooze','fluid_overload'
     ]
     
-    return training_data_cleaned, testing_data_cleaned, classes, all_symptoms
+    return training_data_cleaned, testing_data_cleaned, classes, all_symptoms, label_encoder
 
 ###Cast the loaded dox into a string 
 def create_documents_from_df(dataframes, types):
@@ -171,7 +172,7 @@ def calc_severity_of_disease(list_of_symtpoms_severities):
     else:
             return "Extremely Severe"
 def get_diseases_by_symptoms(symptoms):
-    symptom_df = pd.read_csv('../dataset/disease_symptoms_train.csv')
+    symptom_df = pd.read_csv('dataset/disease_symptoms_train.csv')
     df = symptom_df.copy()
     for symptom in symptoms:
         if symptom in df.columns:

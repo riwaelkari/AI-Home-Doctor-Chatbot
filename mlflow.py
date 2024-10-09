@@ -1,4 +1,4 @@
-# log_model_mlflow.py
+"""# log_model_mlflow.py
 
 import mlflow
 import mlflow.sklearn  # Adjust if your model is not scikit-learn
@@ -55,7 +55,7 @@ def log_symptom_disease_model():
 
 if __name__ == "__main__":
     log_symptom_disease_model()
-
+"""
 '''
 from train_models.symptom_disease_model import SymptomDiseaseModel
 import mlflow
