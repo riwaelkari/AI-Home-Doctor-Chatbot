@@ -4,6 +4,7 @@ import openai
 import logging
 logger = logging.getLogger(__name__)
 import os
+
 # Initialize symptom encoding and decoding
 def encode_user_symptoms(user_symptoms, all_symptoms):
     """
@@ -43,10 +44,8 @@ def decode_prediction(prediction, classes):
     predicted_disease = classes[predicted_index]
     return predicted_disease
 
-
+# Set your OpenAI API key
 openai.api_key = os.getenv('SECRET_TOKEN')
-
-
 
 def query_refiner(query, disease):
     response = openai.chat.completions.create(
@@ -54,76 +53,144 @@ def query_refiner(query, disease):
         messages=[
             {
                 "role": "system",
-                "content": "You are a helpful assistant that refines user queries based on the conversation context."
+                "content": f"""
+You are a helpful assistant that refines user queries based on the conversation context.
+
+**Instructions:**
+
+- If the user's query **includes** any of the words **"description"**, **"precautions"**, or **"severity"**, generate a question in the format:
+
+  **"What is/are [description/precautions/severity] of {disease}?"**
+
+- Ensure that the keyword from the user's query (**"description"**, **"precautions"**, or **"severity"**) is used in your formulated question.
+
+- **If the user's input does NOT include any of these keywords, respond with:**
+
+  **"NO OUTPUT"**
+
+- Do not generate any additional text or explanations.
+"""
             },
             {
                 "role": "user",
                 "content": f"""
-Given the following user message, formulate questions that would be most relevant to provide the user with an answer from a knowledge base. The refined question must:
-User Query: 
+User Query:
 {query}
-
-Check user query for any of the three words [description/precautions/severity] and generate the question based on the following:
-
-1. Use the format: "What is/are [description/precautions/severity] of {disease}?"
-2. {disease} is the variable disease given to you.
-3. If the user input is NOT a query, RETURN NOTHING. Do not generate a random question.
-**4. if the input is not related to describing or precautions or severity of a disease RETURN NOTHING**
-Ensure the keywords: "description", "precautions", or "severity" are used in your formulated question.
-
 
 Refined Query:"""
             }
         ],
-        temperature=0.7,
-        max_tokens=256,
+        temperature=0,  # Set temperature to 0 for deterministic output
+        max_tokens=50,
         top_p=1,
         frequency_penalty=0,
         presence_penalty=0
     )
-    return response.choices[0].message.content.strip()
+    output = response.choices[0].message.content.strip()
+    if output == "NO OUTPUT":
+        return ""
+    else:
+        return output
 
 def query_refiner_severity(conversation, query):
     response = openai.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
-            {"role": "system", "content": "You are a helpful assistant that refines user queries based on the conversation context."},
-            {"role": "user", "content": f"""
-                Given the following user message and conversation log, formulate questions related to symptoms mentioned in the conversation. Each question must be in the format:
+            {
+                "role": "system",
+                "content": """
+You are a helpful assistant that refines user queries based on the conversation context.
 
-                "What is the severity of [symptom]?"
+**Instructions:**
 
-                Instructions:
-                1. Identify all symptoms mentioned in the conversation log refering to the last query.
-                2. Formulate one question for each symptom, asking about its severity.
-                3. If there are no symptoms, RETURN NOTHING.
+- Identify all symptoms mentioned in the **most recent user message**.
 
-                CONVERSATION LOG: 
-                {conversation}
+- For each symptom, generate a question in the format:
 
-                User Query: 
-                {query}
+  **"What is the severity of [symptom]?"**
 
-                Refined Questions:"""}
+- **If no symptoms are mentioned, respond with:**
+
+  **"NO OUTPUT"**
+
+- Do not generate any additional text or explanations.
+"""
+            },
+            {
+                "role": "user",
+                "content": f"""
+Conversation Log:
+{conversation}
+
+User Query:
+{query}
+
+Refined Questions:"""
+            }
         ],
-        temperature=0.7,
-        max_tokens=256,
+        temperature=0,  # Set temperature to 0 for deterministic output
+        max_tokens=150,
         top_p=1,
         frequency_penalty=0,
         presence_penalty=0
     )
-    
-    # Convert response to a list of questions
-    questions = response.choices[0].message.content.splitlines()
-    # Remove any empty strings in the list, if present
-    questions = [q.strip() for q in questions if q.strip()]
-    
-    return questions
+    output = response.choices[0].message.content.strip()
+    if output == "NO OUTPUT":
+        return []
+    else:
+        # Split the output into a list of questions
+        questions = [line.strip() for line in output.split('\n') if line.strip()]
+        return questions
 
+def query_refiner_models(query, list_of_models):
+    response = openai.chat.completions.create(
+        model="gpt-3.5-turbo",  # Ensure this is the desired model
+        messages=[
+            {
+                "role": "system",
+                "content": f"""
+You are a helpful assistant that refines user queries based on the conversation context.
 
+**Instructions:**
 
+- If the user's query is requesting **descriptions** of any model(s) from the provided list, generate questions in the format:
 
-from langchain_openai import OpenAIEmbeddings
+  **"What is the description of [model name]?"**
+
+- Generate one question for each model the user is asking about.
+
+- **If the user's input does NOT request descriptions, respond with:**
+
+  **"NO OUTPUT"**
+
+- Do not generate any additional text or explanations.
+
+**List of Models:**
+{list_of_models}
+"""
+            },
+            {
+                "role": "user",
+                "content": f"""
+User Query:
+{query}
+
+Refined Query:"""
+            }
+        ],
+        temperature=0,  # Set temperature to 0 for deterministic output
+        max_tokens=150,
+        top_p=1,
+        frequency_penalty=0,
+        presence_penalty=0
+    )
+    output =  response.choices[0].message.content.strip()
+    if output == "NO OUTPUT":
+        return ""
+    else:
+        return output
+
+from langchain_community.embeddings import OpenAIEmbeddings
 
 def find_match(input_text, embeddings_model, index, faiss_store, top_k=2):
     """
@@ -131,8 +198,9 @@ def find_match(input_text, embeddings_model, index, faiss_store, top_k=2):
     
     Args:
         input_text (str): The user input text to match.
-        index (faiss.Index): The FAISS index used for similarity search.
-        faiss_store (FAISS): The LangChain FAISS store containing the metadata.
+        embeddings_model: The embeddings model to use.
+        index: The FAISS index used for similarity search.
+        faiss_store: The LangChain FAISS store containing the metadata.
         top_k (int): Number of top matches to retrieve.
     
     Returns:
@@ -140,10 +208,8 @@ def find_match(input_text, embeddings_model, index, faiss_store, top_k=2):
     """
     # Encode the input text to create an embedding
     input_embedding = np.array([embeddings_model.embed_query(input_text)])  # Embed input
-    print(input_embedding)
     # Search the FAISS index for the closest matches
     distances, indices = index.search(input_embedding, top_k)
-    print(distances, indices)
     # Retrieve metadata from the FAISS store for the top matches
     matches = []
     for i in range(top_k):
@@ -151,13 +217,20 @@ def find_match(input_text, embeddings_model, index, faiss_store, top_k=2):
             document = faiss_store.docstore.search(indices[0][i])
             if document and hasattr(document, 'page_content'):
                 matches.append(document.page_content)
-    print(matches)
     # Combine the matches' content
     result = "\n".join(matches)
     return result
 
 def string_to_list(s):
+    """
+    Converts a string representation of a list into an actual list.
 
+    Args:
+        s (str): The string representation of the list.
+
+    Returns:
+        list: The converted list.
+    """
     # Remove the square brackets if present
     s = s.strip('[]')
 

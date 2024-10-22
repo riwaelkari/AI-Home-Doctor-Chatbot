@@ -1,6 +1,8 @@
-import streamlit as st 
+import streamlit as st
 import requests
 import base64
+import time
+from PIL import Image
 
 API_CHAT_URL = "http://127.0.0.1:5000/chat"  # Ensure Flask server is running
 
@@ -16,6 +18,14 @@ st.set_page_config(
     layout="wide",
     page_icon=f"data:image/png;base64,{favicon_base64}"
 )
+
+# Convert logo and user images to base64 for embedding
+def get_base64_image(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode()
+
+logo_base64 = get_base64_image("images/logo-1-removebg.png")
+user_base64 = get_base64_image("images/user.png")
 
 # Custom CSS for styling
 st.markdown(
@@ -97,7 +107,7 @@ st.markdown(
         left: 0;
         width: 100%;
         background-color: #0E1117; /* Match the main background */
-        padding: 10px 15px; /* Reduced padding to decrease input box size */
+        padding: 10px 15px; /* Padding for input area */
         box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
         display: flex;
         flex-direction: column;
@@ -105,9 +115,16 @@ st.markdown(
         z-index: 1000; /* Ensure it stays above other elements */
     }
 
+    /* Input row (chat input and attach button) */
+    .input-row {
+        display: flex;
+        width: 100%;
+        max-width: 800px; /* Adjust as needed */
+    }
+
     /* Decrease the height and font size of the input box */
     .fixed-input-container .stTextInput > div > div > input {
-        height: 10px; /* Decreased height of the input box */
+        height: 35px; /* Adjusted height of the input box */
         font-size: 14px; /* Adjusted font size for better fit */
     }
 
@@ -136,20 +153,9 @@ st.markdown(
         flex-direction: column;
         justify-content: flex-start;
         overflow-y: auto;
-        padding: 0 15px 100px 15px; /* Increased bottom padding to accommodate fixed input */
+        padding: 15px;
         margin: 0;
-        height: calc(100vh - 200px);  /* Adjusted height to accommodate smaller input box and disclaimer */
-    }
-
-    .chat-form-container {
-        display: flex;
-        align-items: center;
-        margin-top: 10px;
-    }
-
-    .text-input {
-        flex-grow: 1;
-        margin-right: 10px;
+        height: calc(100vh - 250px);  /* Adjusted height to accommodate fixed input */
     }
 
     /* Hide the default Streamlit status */
@@ -168,22 +174,21 @@ st.markdown(
         z-index: 1001; /* Above other elements */
     }
 
-
     /* Disclaimer under the input box */
-        .input-disclaimer {
-            padding: 0; /* Remove existing padding */
-            height:15px; /* Approximately 5mm */
-            background-color: #0E1117; /* Match the main background */
-            color: #D3D3D3; /* Set text color to white */
-            font-size: 0.1em; /* Smaller font size */
-            text-align: center;
-            box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
-            margin-top: 1px; /* Space above disclaimer */
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+    .input-disclaimer {
+        padding: 0; /* Remove existing padding */
+        height: 15px; /* Approximately 5mm */
+        background-color: #0E1117; /* Match the main background */
+        color: #D3D3D3; /* Set text color to light gray */
+        font-size: 0.8em; /* Adjusted font size */
+        text-align: center;
+        box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+        margin-top: 5px; /* Space above disclaimer */
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
     /* Optional: Adjust scrollbar appearance for better aesthetics */
     ::-webkit-scrollbar {
@@ -211,19 +216,18 @@ st.sidebar.image("images/logo-1-removebg.png")  # Image will respect the fixed w
 st.sidebar.title("Home Doctor 🩺")  # Added stethoscope emoji
 st.sidebar.markdown("Your personal health assistant.")
 
-# Convert logo to base64 for embedding
-def get_base64_image(image_path):
-    with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode()
-
-logo_base64 = get_base64_image("images/logo-1-removebg.png")
-user_base64 = get_base64_image("images/user.png")
-
 # Initialize session state to keep track of the conversation
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {"role": "bot", "content": "Hello! How can I assist you today?"}
     ]
+
+# Initialize session state for the uploader visibility
+if 'show_uploader' not in st.session_state:
+    st.session_state.show_uploader = False
+
+def toggle_uploader():
+    st.session_state.show_uploader = not st.session_state.show_uploader
 
 # Callback function for sending messages
 def send_message(user_input):
@@ -258,13 +262,22 @@ def send_message(user_input):
         st.session_state.messages.pop()
         st.session_state.messages.append({"role": "bot", "content": f"Error: {str(e)}"})
 
-# User input using st.chat_input within the fixed input container
-st.markdown("<div class='fixed-input-container'>", unsafe_allow_html=True)
-user_input = st.chat_input("You:")
-st.markdown("</div>", unsafe_allow_html=True)
-
-if user_input:
-    send_message(user_input)
+# Handle file uploads
+if st.session_state.show_uploader:
+    st.markdown("<div style='padding: 15px;'>", unsafe_allow_html=True)
+    with st.container():
+        file = st.file_uploader("Upload your data")
+        if file:
+            with st.spinner("Processing your file"):
+                time.sleep(5)  # Dummy wait for demo purposes
+                # You can add your file processing logic here
+                st.success("File uploaded and processed successfully!")
+                # Optionally, append the file information to the chat
+                st.session_state.messages.append({
+                    "role": "bot",
+                    "content": f"Received your file: {file.name}"
+                })
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # Display conversation with icons
 st.markdown("<div class='chat-display'>", unsafe_allow_html=True)
@@ -289,14 +302,32 @@ for message in st.session_state.messages:
             """, unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# Add the disclaimer under the input box within the fixed input container
+# User input and Attach button within the fixed input container
+st.markdown("<div class='fixed-input-container'>", unsafe_allow_html=True)
+
+# Create a container for the input row (chat input and attach button)
+st.markdown("<div class='input-row'>", unsafe_allow_html=True)
+input_col, attach_col = st.columns([4, 1])
+
+with input_col:
+    user_input = st.chat_input("You:")
+
+with attach_col:
+    attach_button = st.button("📎 Attach", key="attach_button", on_click=toggle_uploader)
+
+st.markdown("</div>", unsafe_allow_html=True)  # Close input-row div
+
+# Add the disclaimer within the fixed input container
 st.markdown(
     """
-    <div class='fixed-input-container'>
-        <div class='input-disclaimer'>
-            <p>AI Home Doctor can make mistakes. Please check back with a professional.</p>
-        </div>
+    <div class='input-disclaimer'>
+        <p>AI Home Doctor can make mistakes. Please check back with a professional.</p>
     </div>
     """,
     unsafe_allow_html=True
-)   
+)
+
+st.markdown("</div>", unsafe_allow_html=True)  # Close fixed-input-container div
+
+if user_input:
+    send_message(user_input)

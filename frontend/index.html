@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Home Doctor Chatbot</title>
+    <link rel="icon" href="images/stethoscope.png" type="image/png">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- Sidebar Toggle Button -->
+    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Open Sidebar">
+        <img src="images/side.png" alt="Open Sidebar" class="toggle-icon">
+    </button>
+
+    <!-- Sidebar (Left-Aligned and Collapsible) -->
+    <div class="sidebar" id="sidebar">
+        <button class="close-sidebar" id="closeSidebar" aria-label="Close Sidebar">
+            <img src="images/side2nd.png" alt="Close Sidebar" class="close-icon">
+        </button>
+        <img src="images/logo-1-removebg.png" alt="Logo" class="sidebar-logo">
+        <h2>Home Doctor 🩺</h2>
+        <p>Your personal health assistant.</p>
+    </div>
+
+    <!-- Chat Display Area -->
+    <div class="chat-display" id="chatDisplay">
+        <!-- Initial Bot Message -->
+        <div class="chat-container bot-chat-container">
+            <img src="images/stethoscope.png" alt="Doctor" class="message-icon">
+            <div class="chat-content bot-bubble chat-bubble">
+                <span class="sender-label">Doctor:</span> <span>Hello! How can I assist you today?</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Name Display Box -->
+    <div id="imageNameBox" class="image-name-box" style="display: none;">
+        <span id="imageName"></span>
+        <button id="removeImageButton" aria-label="Remove Image">✖️</button>
+    </div>
+
+    <!-- Fixed Input Container -->
+    <div class="fixed-input-container">
+        <input type="text" id="userInput" placeholder="Type your message here..." autocomplete="off">
+        
+        <!-- Attach Button -->
+        <button id="attachButton" aria-label="Attach File">
+            <span class="attach-icon" role="img" aria-label="Attach">📎</span>
+        </button>
+
+        <!-- Hidden File Input -->
+        <input type="file" id="fileInput" accept="image/*" style="display: none;">
+        
+        <!-- Send Button -->
+        <button id="sendButton" aria-label="Send Message">
+            <img src="images/arrow.png" alt="Send" class="send-icon">
+        </button>
+    </div>
+
+    <!-- Input Disclaimer -->
+    <div class="input-disclaimer">
+        AI Home Doctor can make mistakes. Please check back with a professional.
+    </div>
+
+    <!-- JavaScript -->
+    <script src="script.js"></script>
+</body>
+</html>

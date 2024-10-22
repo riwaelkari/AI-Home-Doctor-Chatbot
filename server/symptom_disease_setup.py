@@ -4,7 +4,8 @@ import os
 import logging
 from dotenv import load_dotenv
 from actual_models.symptom_disease_model import SymptomDiseaseModel
-from chatbot.chains.chains import SymptomDiseaseChain
+from chatbot.chains.symptom_disease_chains import SymptomDiseaseChain
+from langchain_openai import ChatOpenAI
 from chatbot.data_processing import (
     load_data,
     preprocess_data,
@@ -37,7 +38,7 @@ def initialize_symptom_disease_chain(agent):
     # Initialize Chat Model with LangChain
     llm = ChatOpenAI(
         temperature=0.7,
-        model_name="gpt-4o-mini", 
+        model_name="gpt-4o-mini",  # Replace with your desired model
         openai_api_key=openai_api_key
     )
     
@@ -62,7 +63,8 @@ def initialize_symptom_disease_chain(agent):
         faiss_store=faiss_store,
         faiss_index=faiss_store.index,
         embeddings_model=embeddings_model,
-        split_docs=split_documents
+        split_docs=split_documents,
+        llm=llm
     )
     
     # Register the chain with the agent

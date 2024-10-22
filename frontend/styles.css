@@ -1,0 +1,429 @@
+/* Overall Background and Text Color */
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #0E1117;
+    color: #f1f1f1;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Sidebar Toggle Button */
+.sidebar-toggle {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    z-index: 1002;
+}
+
+.toggle-icon {
+    width: 30px;
+    height: 30px;
+}
+
+/* Sidebar Styles (Left-Aligned and Collapsible) */
+.sidebar {
+    background-color: #262730;
+    width: 250px;
+    padding: 20px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    transition: transform 0.3s ease;
+    z-index: 1001;
+}
+
+.sidebar.closed {
+    transform: translateX(-250px); /* Hide the sidebar */
+}
+
+.close-sidebar {
+    align-self: flex-end;
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+.close-icon {
+    width: 24px;
+    height: 24px;
+}
+
+.sidebar-logo {
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+    margin: 20px 0 10px 0;
+}
+
+.sidebar h2 {
+    margin: 10px 0 5px 0;
+}
+
+.sidebar p {
+    text-align: center;
+}
+
+/* Chat Display Area */
+.chat-display {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    margin-left: 250px; /* Width of the sidebar */
+    transition: margin-left 0.3s ease;
+    margin-bottom: 100px; /* Reduced bottom margin for input box and disclaimer */
+}
+
+.sidebar.closed ~ .chat-display {
+    margin-left: 0; /* Remove margin when sidebar is closed */
+    margin-bottom: 100px; /* Ensure the margin is still there for disclaimer */
+}
+
+/* Chat Container */
+.chat-container {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    margin-bottom: 10px;
+}
+
+/* Bot Chat Container */
+.bot-chat-container {
+    align-items: flex-start;
+}
+
+/* User Chat Container */
+.user-chat-container {
+    justify-content: flex-end;
+}
+
+/* Message Icons */
+.message-icon {
+    width: 50px;
+    height: 50px;
+    margin: 10px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+/* Chat Bubbles */
+.chat-bubble {
+    border-radius: 15px;
+    padding: 10px;
+    max-width: 65%;
+    display: inline-block;
+    position: relative;
+    font-size: 16px; /* Increased font size */
+    line-height: 1.6; /* Adjust line height for more spacing between lines */
+}
+
+.bot-bubble {
+    background-color: #262730;
+    color: #fff;
+    text-align: left;
+}
+
+.user-bubble {
+    background-color: #831434;
+    color: #fff;
+    text-align: right;
+    margin-left: auto;
+}
+
+/* Sender Label */
+.sender-label {
+    font-weight: bold;
+    font-size: 0.9em;
+    margin-bottom: 3px;
+    display: block;
+}
+
+/* Image Name Display Box */
+.image-name-box {
+    position: fixed;
+    bottom: 80px; /* Positioned just above the input container */
+    left: 250px; /* Width of the sidebar */
+    right: 0;
+    background-color: #262730;
+    color: #f1f1f1;
+    padding: 10px 15px;
+    border-radius: 5px;
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    max-height: 50px; /* Adjust as needed */
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+/* Remove Image Button - Updated */
+#removeImageButton {
+    background-color: #8B0000; /* Dark red color */
+    border: none;
+    color: #f1f1f1; /* White color for visibility */
+    font-size: 16px;
+    cursor: pointer;
+    padding: 5px;
+    margin-left: 10px;
+    border-radius: 3px;
+}
+
+/* Fixed Input Container */
+.fixed-input-container {
+    position: fixed;
+    bottom: 30px; /* Reduced bottom margin to make space tighter */
+    left: 250px; /* Width of the sidebar */
+    right: 0;
+    background-color: #0E1117;
+    padding: 10px 15px;
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    z-index: 1000;
+    transition: left 0.3s ease;
+}
+
+.sidebar.closed ~ .fixed-input-container {
+    left: 0; /* Shift input container when sidebar is closed */
+}
+
+.fixed-input-container input {
+    flex-grow: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    font-size: 14px;
+    background-color: #262730; /* Same as chatbox */
+    color: #f1f1f1; /* Text color */
+}
+
+.fixed-input-container input::placeholder {
+    color: #b3b3b3; /* Placeholder text color */
+}
+
+.fixed-input-container button {
+    margin-left: 10px;
+    padding: 10px;
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    position: relative;
+}
+
+.send-icon, .attach-icon {
+    width: 24px;
+    height: 24px;
+}
+
+/* Adjust the attach-icon class to display the emoji properly */
+.attach-icon {
+    font-size: 24px;
+    line-height: 1;
+}
+
+/* File Attached Indicator */
+#attachButton.file-attached .attach-icon {
+    color: #FFD700; /* Gold color */
+}
+
+/* Upload Indicator */
+.upload-indicator {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background-color: #262730;
+    color: #f1f1f1;
+    padding: 15px;
+    border-radius: 5px;
+    z-index: 1002;
+    font-size: 14px;
+    display: none; /* Initially hidden */
+    width: 300px; /* Adjust the width as needed */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Progress Container */
+.progress-container {
+    background-color: #444;
+    border-radius: 5px;
+    overflow: hidden;
+    height: 20px;
+    margin-top: 10px;
+}
+
+/* Progress Bar */
+.progress-bar {
+    height: 100%;
+    width: 0%;
+    background-color: #831434;
+    text-align: center;
+    line-height: 20px; /* Vertically center the text */
+    color: white;
+    transition: width 0.4s ease;
+    border-radius: 5px 0 0 5px;
+}
+
+/* Image Attachment Styling */
+.image-attachment {
+    max-width: 200px;
+    max-height: 200px;
+    margin-top: 10px;
+    border-radius: 5px;
+}
+
+/* Image Name Display Box Adjustments */
+.image-name-box {
+    position: fixed;
+    bottom: 92px; /* Positioned just above the input container */
+    left: 250px; /* Width of the sidebar */
+    right: 0;
+    background-color: #262730;
+    color: #f1f1f1;
+    padding: 10px 15px;
+    border-radius: 5px;
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    max-height: 50px; /* Adjust as needed */
+    overflow: hidden;
+    box-sizing: border-box;
+    width: calc(100% - 270px); /* Adjust to match input field */
+}
+
+/* Remove Image Button - Updated */
+#removeImageButton {
+    background-color: #8B0000; /* Dark red color */
+    border: none;
+    color: #f1f1f1; /* White color for visibility */
+    font-size: 16px;
+    cursor: pointer;
+    padding: 5px;
+    margin-left: 10px;
+    border-radius: 3px;
+}
+
+/* Adjust for Sidebar Closed State */
+.sidebar.closed ~ .image-name-box {
+    left: 20px; /* Adjusted to provide margin from the edge */
+    right: 20px;
+    width: calc(100% - 40px); /* Adjust to match input field */
+}
+
+/* Input Disclaimer */
+.input-disclaimer {
+    position: fixed;
+    bottom: 0; /* Fixed at the bottom of the page */
+    left: 250px; /* Width of the sidebar */
+    right: 0;
+    padding: 5px 0;
+    background-color: #0E1117;
+    color: #D3D3D3;
+    font-size: 0.8em;
+    text-align: center;
+    z-index: 1000; /* Same as the input container */
+    width: calc(100% - 250px);
+    transition: left 0.3s ease;
+}
+
+.sidebar.closed ~ .input-disclaimer {
+    left: 0; /* Shift disclaimer when sidebar is closed */
+    width: 100%;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1e1e1e;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #444;
+    border-radius: 4px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 200px;
+    }
+
+    .chat-display {
+        margin-left: 200px; /* Updated sidebar width */
+    }
+
+    .sidebar.closed ~ .chat-display {
+        margin-left: 0;
+    }
+
+    .fixed-input-container {
+        left: 200px;
+    }
+
+    .sidebar.closed ~ .fixed-input-container {
+        left: 0;
+    }
+
+    .input-disclaimer {
+        left: 200px;
+        width: calc(100% - 200px);
+    }
+
+    .sidebar.closed ~ .input-disclaimer {
+        left: 0;
+        width: 100%;
+    }
+
+    .toggle-icon {
+        width: 25px;
+        height: 25px;
+    }
+
+    .close-icon {
+        width: 20px;
+        height: 20px;
+    }
+
+    .send-icon {
+        width: 20px;
+        height: 20px;
+    }
+
+    .image-name-box {
+        left: 200px; /* Adjust based on new sidebar width */
+        right: 20px;
+        width: calc(100% - 220px); /* Adjust to match input field */
+    }
+
+    .sidebar.closed ~ .image-name-box {
+        left: 20px; /* Adjusted to provide margin from the edge */
+        right: 20px;
+        width: calc(100% - 40px); /* Adjust to match input field */
+    }
+}
+
+/* Image Name Display Box - Ensuring Same Width as Input */
+.image-name-box {
+    width: calc(100% - 270px); /* Adjust to match input field width */
+}

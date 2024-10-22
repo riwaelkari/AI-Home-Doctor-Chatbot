@@ -22,3 +22,6 @@ langchain-huggingface
 mlflow
 joblib
 guardrails-ai
+torch
+torchvision
+seaborn
