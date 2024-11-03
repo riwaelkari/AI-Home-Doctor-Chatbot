@@ -1,5 +1,6 @@
 # chatbot/agent.py
-
+from PIL import Image
+import io
 import logging
 from .chains.base_chains import BaseChain
 
@@ -69,7 +70,7 @@ class Agent:
         # Default to the base chain
         return self.default_chain
 
-    def handle_request(self, user_input: str, conversation_history: str, image) -> dict:
+    def handle_request(self, user_input: str, conversation_history: str, image_path) -> dict:
         """
         Handles the user request by delegating to the appropriate chain.
 
@@ -89,7 +90,7 @@ class Agent:
         logger.info(f"Delegating to chain: {chain.__class__.__name__}")
         
         try:
-            response = chain.generate_response(user_input, conversation_history,image)
+            response = chain.generate_response(user_input, conversation_history,image_path)
             print(response)
             return response
         except Exception as e:

@@ -91,6 +91,74 @@ Refined Query:"""
         return ""
     else:
         return output
+import openai
+
+def model_selector(query, list_of_models):
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",  # You can change this to "gpt-4" if preferred
+        messages=[
+            {
+                "role": "system",
+                "content": f"""
+You are an intelligent assistant designed to identify which model a user is referring to based on their query.
+
+Instructions:
+
+- Model 1: If the user's query mentions terms like "symptom disease model," "first model," or any other phrase that indicates Model 1, return `1`.
+
+- Model 2: If the user's query mentions terms like "skin disease model," "image," "second model," or any other phrase that indicates Model 2, return `2`.
+
+- Additional Guidelines:
+  
+  - Do not provide explanations or any additional text other than the specified outputs.
+  
+  - Ensure the response is either `1`, `2`, or `"NO OUTPUT"` based on the query.
+
+**List of Models:**
+{list_of_models}
+"""
+            },
+            {
+                "role": "user",
+                "content": f"""
+User Query:
+{query}
+
+Model Number:"""
+            }
+        ],
+        temperature=0,  # Set to 0 for deterministic responses
+        max_tokens=10,   # Sufficient for short outputs like "1", "2", or "NO OUTPUT"
+        top_p=1,
+        frequency_penalty=0,
+        presence_penalty=0
+    )
+    
+    output = response.choices[0].message.content.strip()
+    
+    if output == "NO OUTPUT":
+        return ""
+    elif output in {"1", "2"}:
+        return int(output)
+    else:
+        # In case of unexpected output, you might want to handle it accordingly
+        return ""
+
+# Example Usage:
+if __name__ == "__main__":
+    list_of_models = """
+1. Symptom Disease Model
+2. Skin Disease Model
+"""
+    queries = [
+        "Can you tell me more about the first model?",
+        "I need information on the skin disease model.",
+        "What is the weather today?"
+    ]
+    
+    for q in queries:
+        model_number = model_selector(q, list_of_models)
+        print(f"Query: '{q}' => Model Number: {model_number}")
 
 def query_refiner_severity(conversation, query):
     response = openai.chat.completions.create(

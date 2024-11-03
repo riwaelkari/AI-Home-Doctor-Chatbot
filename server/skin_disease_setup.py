@@ -26,7 +26,7 @@ def initialize_skin_disease_chain(agent):
     
     # Load the trained model using the provided load_checkpoint function
     try:
-        model = load_checkpoint('saved_models/checkpoint.pth')
+        model,class_to_idx = load_checkpoint('saved_models/checkpoint.pth')
         logger.info(f"SkinDiseaseClassifier loaded successfully from checkpoint")
     except FileNotFoundError as e:
         logger.error(e)
@@ -53,7 +53,8 @@ def initialize_skin_disease_chain(agent):
     # Initialize SkinDiseaseChain
     skin_disease_chain = SkinDiseaseChain(
         disease_model=model,
-        llm=llm
+        llm=llm,
+        class_to_idx= class_to_idx
     )
     
     # Register the chain with the agent

@@ -1,4 +1,3 @@
-#server/server.py
 from flask import Flask, request, jsonify, render_template, send_from_directory
 import logging
 from flask_cors import CORS
@@ -52,6 +51,7 @@ def serve_static(filename):
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
+        image_path = None  # Initialize image_path to None
         # Access form data and files
         message = request.form.get('message')
         image = request.files.get('image')
@@ -83,9 +83,9 @@ def chat():
             f"{'User' if isinstance(msg, HumanMessage) else 'Assistant'}: {msg.content}" 
             for msg in conversation_history
         ])
-
+        print(image_path)
         # Delegate to the agent
-        response_dict = agent.handle_request(message, formatted_history, image)
+        response_dict = agent.handle_request(message, formatted_history, image_path)
 
         # Add user and assistant messages to memory
         memory.chat_memory.add_user_message(message)
@@ -102,4 +102,4 @@ def chat():
         return jsonify({'error': f"An unexpected error occurred: {e}"}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)

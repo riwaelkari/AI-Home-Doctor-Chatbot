@@ -55,6 +55,8 @@ You are a friendly medical assistant at home, interact with the user {user_input
 Conversation history: {conversation_history}
 
 Answer based on Conversation history also.
+Do not generate additional information or guesses.
+*Be natural, dont say: User said* 
 """
 
         return PromptTemplate(
@@ -65,37 +67,48 @@ Answer based on Conversation history also.
 
 
     def get_symptom_extraction_prompt(self):
-            """
-            Defines the prompt template for symptom extraction.
+        """
+    Defines the prompt template for symptom extraction.
 
-            Returns:
-                PromptTemplate: The formatted prompt template.
-            """
-            template = """
-    You are a specialized medical assistant focused on extracting symptoms from the user's input. Follow these instructions strictly:
+    Returns:
+        PromptTemplate: The formatted prompt template.
+        """
+        template = """
+You are a medical assistant specializing in extracting symptoms from user input. Follow these instructions strictly:
 
-    Inputs Provided:
-    - Possible symptoms: {symptom_list}
-    - User input: {user_input}
-    - Conversation history: {conversation_history}
-    *DO DIRECTLY: If there are no symptoms in User input ALONE DIRECTLY RETURN NOTHING AND DO NOT READ THE FOLLOWING STEPS.*
-    Extraction Rules:
-    1. Do *not* extract symptoms from the conversation history unless there are symptoms in User inpurt
-    2. *If no symptoms are found in the current user input, return the exact phrase: NOTHING*.
+- **Possible Symptoms:** {symptom_list}
+- **User Input:** {user_input}
 
-    Output Format:
-    - If symptoms are found IN USER INPUT: Return a comma-separated list of symptoms including the ones in conversation histroy (e.g., "fever, cough").
-    - If no symptoms are found: Return "NOTHING" without any additional text.
+**Instructions:**
 
-    Ensure that you *strictly follow these instructions* without exceptions. Any deviation will lead to incorrect outcomes.
-     IMPORTANT: **please only check conversation history for additional symptoms if symptoms are provided in User input and include them in the return.
-     *PLEASE DO NOT CHECK CONVERSATION HISTORY IF there are no symptoms in User input and return the phrase: NOTHING*
+1. **Symptom Extraction:**
+   - Examine the **User Input** and identify any symptoms that match the **Possible Symptoms** list.
+   - **Only** consider the **User Input**; do **not** consider any conversation history.
+   - If symptoms are found, return them as a **comma-separated** list in lowercase.
+   - If no symptoms are found, return `NOTHING`.
+
+**Output Format:**
+
+- If symptoms are found:
+  - `fever, cough`
+- If no symptoms are found:
+  - `NOTHING`
+
+**Important:**
+
+- Do **not** provide any explanations or additional text.
+- Do **not** include any symptoms from the conversation history.
+- **Strictly** adhere to the instructions.
+
+**Examples:**
+
+- **User Input:** "I've been having headaches and nausea."
+  - **Output:** `headache, nausea`
+- **User Input:** "Can you tell me more about the precautions for flu?"
+  - **Output:** `NOTHING`
     """
+        return PromptTemplate(template=template, input_variables=["symptom_list", "user_input", "conversation_history"])
 
-            return PromptTemplate(
-                input_variables=["user_input", "symptom_list","conversation_history"],
-                template=template
-            )
 
 
 
@@ -112,9 +125,9 @@ Answer based on Conversation history also.
 
     Number of diseases that include the user's symptoms: {n}
 
-    If the number of diseases that include the user's symptoms is greater than 1, tell the user to give more symptoms to not get misdiagnosed otherwise do not mention the problem at all. DO NOT EXPLICITLY MENTION THE NUMBER OF MATCHING DISEASES
+    If the number of diseases that include the user's symptoms is greater than 1, tell the user to give more symptoms to not get misdiagnosed otherwise do not mention the problem at all. DO NOT EXPLICITLY MENTION THE NUMBER OF MATCHING DISEASES,
 
-    **Be reasonable  with the number i gave you and answer with importance based on the number**, meaning if the number is 1 dont mention to the user anything, if its 2 or 3 tell him he might get misdiagnosed, if its higher increase the caution of the message
+    **Be reasonable  with the number i gave you and answer with importance based on the number**, meaning if the number is 1 dont mention to the user anything, if its 2 or 3 tell him he might get misdiagnosed as there are one or two more diseases with the same symtpoms, if its higher increase the caution of the message, tell him there are too many diseases  that have this symptom and he must share more symtpoms
 
     Conversation history: {conversation_history}
 
@@ -148,8 +161,8 @@ You are a friendly and empathetic home doctor. Based on the conversation history
 2. 
     - If the user is asking for a *description*, provide a clear and concise description of the disease using the provided information.
     - If the user is asking for *precautions, list the **four (4)* most relevant precautions as (Dotted) bullet points under each other.
-3. *Do not* include any information that is not present in the *Provided Information* section.
-4. Ensure that your response is well-formatted, clear, and directly addresses the user's query.
+
+*Give the information in a well presentable way but without modifying the Provided information*
 
 *Response:*
 """
@@ -251,7 +264,7 @@ You are a friendly and empathetic home doctor. Based on the conversation history
 ######################################################################################
 
 
-    def generate_response(self, user_input, conv_history, image):
+    def generate_response(self, user_input, conv_history, image_path):
         """
         Generates a response based on user input by extracting symptoms and predicting disease.
 
@@ -268,16 +281,16 @@ You are a friendly and empathetic home doctor. Based on the conversation history
         logger.info(f"Extracted symptoms: {symptoms}")
         refined_query = query_refiner(user_input,self.current_disease)
         logger.info(f"Refined query: {refined_query}")
-        if image:
+        if image_path:
             response = "This Model does not support images, please either choose a model that does, or refrain from attaching images."
-            return response
+            return {"response": response,
+                }
         elif symptoms:
             # Predict disease based on extracted symptoms
             predicted_disease = self.predict_disease(symptoms)
             logger.info(f"Predicted disease: {predicted_disease}")
                 # Update conversation history with disease and symptoms
             #n = matching_disease_fre(symptoms,....)
-            print(type(conv_history))
             n=get_diseases_by_symptoms(symptoms)
             logger.info(f"Number of matching diseases: {n}")
             print(predicted_disease)

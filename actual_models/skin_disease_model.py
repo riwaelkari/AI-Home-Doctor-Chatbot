@@ -64,33 +64,33 @@ class SkinDiseaseClassifier(nn.Module):
 # Prediction Function
 # ===========================
 
-def predict(model, image_path, top_k=3, device='cpu'):
-    model.to(device)
-    model.eval()
+    def predict(self, image_path,class_to_index ,top_k=3, device='cpu'):
+        self.model.to(device)
+        self.model.eval()
 
-    # Process image
-    tensor_image = process_image(image_path, device=device)
+        # Process image
+        tensor_image = process_image(image_path, device=device)
 
-    with torch.no_grad():
-        outputs = model(tensor_image)
-        probabilities = torch.softmax(outputs, dim=1)
+        with torch.no_grad():
+            outputs = self.model(tensor_image)
+            probabilities = torch.softmax(outputs, dim=1)
 
-        top_probs, top_indices = probabilities.topk(top_k, dim=1)
+            top_probs, top_indices = probabilities.topk(top_k, dim=1)
 
-    # Remove batch dimension and convert to numpy
-    top_probs = top_probs.detach().cpu().numpy()[0]
-    top_indices = top_indices.detach().cpu().numpy()[0]
+        # Remove batch dimension and convert to numpy
+        top_probs = top_probs.detach().cpu().numpy()[0]
+        top_indices = top_indices.detach().cpu().numpy()[0]
 
-    # Convert indices to class labels
-    idx_to_class = {v: k for k, v in model.class_to_idx.items()}
-    top_classes = [idx_to_class[idx] for idx in top_indices]
+        # Convert indices to class labels
+        idx_to_class = {v: k for k, v in class_to_index.items()}
+        top_classes = [idx_to_class[idx] for idx in top_indices]
 
-    # Create a formatted string of predictions
-    prediction_str = "Here are the top predictions based on the provided image:\n\n"
-    for rank, (cls, prob) in enumerate(zip(top_classes, top_probs), start=1):
-        prediction_str += f"{rank}. {cls}: {prob * 100:.2f}%\n"
+        # Create a formatted string of predictions
+        prediction_str = "Here are the top predictions based on the provided image:\n\n"
+        for rank, (cls, prob) in enumerate(zip(top_classes, top_probs), start=1):
+            prediction_str += f"{rank}. {cls}: {prob * 100:.2f}%\n"
 
-    return prediction_str
+        return prediction_str
 
 # ===========================
 # Argument Parsing
@@ -372,8 +372,8 @@ def load_checkpoint(filepath):
     )
 
     model.load_state_dict(checkpoint['state_dict'])
-    model.class_to_idx = checkpoint['class_to_idx']
-    return model
+    class_to_idx = checkpoint['class_to_idx']
+    return model,class_to_idx
 
 # ===========================
 # Image Processing Function

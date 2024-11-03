@@ -91,24 +91,43 @@ function sanitize(str) {
     return temp.innerHTML;
 }
 
-// Function to send user message
-function sendMessage() {
-    const userText = userInput.value.trim();
-    if (userText === "" && !attachedFile) return;
+// Function to send user message using Fetch API
+async function sendMessage() {
+    console.log('sendMessage function called'); // Debugging statement
 
-    // Append user message
+    const userText = userInput.value.trim();
+    console.log(`User input: "${userText}"`); // Debugging
+
+    if (userText === "" && !attachedFile) {
+        console.log('No message or file to send'); // Debugging
+        return;
+    }
+    if(attachedFile){
+         console.log('test1')
+    }
+
+    // Append user message to chat display
     messages.push({ role: "user", content: userText, imageData: attachedFileDataURL });
     renderMessages();
 
+    if(attachedFile){
+        console.log('test2')
+   }
     // Clear input
     userInput.value = "";
-
+    if(attachedFile){
+        console.log('test3')
+   }
     // Hide the image name box since the image is being sent
     hideImageNameBox();
-
+    if(attachedFile){
+        console.log('test4')
+   }
     // Show "Diagnosing..." animation
     showDiagnosingAnimation();
-
+    if(attachedFile){
+        console.log('test1')
+   }
     // Show upload indicator if file is attached
     if (attachedFile) {
         showUploadIndicator(); // This will now include a progress bar
@@ -118,26 +137,30 @@ function sendMessage() {
     let formData = new FormData();
     formData.append('message', userText);
     if (attachedFile) {
-        formData.append('image', attachedFile);
+        formData.append('image', attachedFile, attachedFile.name); // Include filename
+        console.log(`Appending image: ${attachedFile.name}`); // Debugging
     }
 
-    // Initialize XMLHttpRequest
-    const xhr = new XMLHttpRequest();
-
-    xhr.open('POST', API_CHAT_URL, true);
-
-    // Set up progress event listener
-    xhr.upload.addEventListener('progress', function(event) {
-        if (event.lengthComputable) {
-            const percentComplete = (event.loaded / event.total) * 100;
-            updateProgressBar(percentComplete);
+    // Debugging: Log FormData contents
+    console.log('FormData contents:');
+    for (let pair of formData.entries()) {
+        if (pair[0] === 'image') {
+            console.log(`${pair[0]}: ${pair[1].name}`); // Log image filename
+        } else {
+            console.log(`${pair[0]}: ${pair[1]}`);
         }
-    });
+    }
 
-    // Set up onload handler
-    xhr.onload = function() {
-        if (xhr.status === 200) {
-            const data = JSON.parse(xhr.responseText);
+    try {
+        const response = await fetch(API_CHAT_URL, {
+            method: 'POST',
+            body: formData
+            // Note: Do NOT set the 'Content-Type' header when sending FormData
+            // The browser will automatically set it, including the boundary
+        });
+
+        if (response.ok) {
+            const data = await response.json();
             const gptResponse = data.gpt_response || "No response from the chatbot.";
 
             // Stop the "Diagnosing..." animation
@@ -150,9 +173,12 @@ function sendMessage() {
             messages.push({ role: "bot", content: gptResponse });
         } else {
             // Handle non-200 responses
+            console.error(`Server responded with status ${response.status}`);
+            const errorData = await response.json();
+            const errorMessage = errorData.error || "An error occurred while processing your request.";
             stopDiagnosingAnimation();
             messages.pop();
-            messages.push({ role: "bot", content: "An error occurred while processing your request. Please try again later." });
+            messages.push({ role: "bot", content: `Error: ${errorMessage}` });
         }
 
         if (attachedFile) {
@@ -164,12 +190,9 @@ function sendMessage() {
         }
 
         renderMessages();
-    };
-
-    // Set up onerror handler
-    xhr.onerror = function() {
-        // Handle network errors
-        console.error('An error occurred during the transaction');
+    } catch (error) {
+        // Handle network or other errors
+        console.error('An error occurred during the transaction:', error);
         stopDiagnosingAnimation();
         messages.pop();
         messages.push({ role: "bot", content: "An error occurred while sending your message. Please try again." });
@@ -183,10 +206,7 @@ function sendMessage() {
         }
 
         renderMessages();
-    };
-
-    // Send the request
-    xhr.send(formData);
+    }
 }
 
 // Function to start "Diagnosing..." live animation
@@ -194,6 +214,7 @@ function showDiagnosingAnimation() {
     let dots = 0;
     const diagnosingMessage = { role: "bot", content: "Diagnosing..." };
     messages.push(diagnosingMessage);
+    renderMessages();
 
     // Set up an interval to update the "Diagnosing..." message
     diagnosingInterval = setInterval(() => {
@@ -205,22 +226,30 @@ function showDiagnosingAnimation() {
 
 // Function to stop the "Diagnosing..." animation
 function stopDiagnosingAnimation() {
-    clearInterval(diagnosingInterval); // Stop the interval
+    if (diagnosingInterval) {
+        clearInterval(diagnosingInterval); // Stop the interval
+        diagnosingInterval = null;
+    }
 }
 
 // Event listener for send button
-sendButton.addEventListener('click', sendMessage);
+sendButton.addEventListener('click', function() {
+    console.log('Send button clicked'); // Debugging
+    sendMessage();
+});
 
 // Allow sending message by pressing Enter key
 userInput.addEventListener('keypress', function(event) {
     if (event.key === 'Enter') {
         event.preventDefault();
+        console.log('Enter key pressed in input'); // Debugging
         sendMessage();
     }
 });
 
 // Event listener for attach button
 attachButton.addEventListener('click', function () {
+    console.log('Attach button clicked'); // Debugging
     fileInput.click(); // Trigger the file input to open the file explorer
 });
 
@@ -228,6 +257,7 @@ attachButton.addEventListener('click', function () {
 fileInput.addEventListener('change', function () {
     if (fileInput.files.length > 0) {
         attachedFile = fileInput.files[0];
+        console.log(`File selected: ${attachedFile.name}`); // Debugging
         showFileAttachedIndicator(attachedFile.name);
 
         // Show the image name box with the file name
@@ -237,8 +267,11 @@ fileInput.addEventListener('change', function () {
         const reader = new FileReader();
         reader.onload = function(e) {
             attachedFileDataURL = e.target.result; // Store the data URL
+            console.log(`File read as Data URL: ${attachedFileDataURL.substring(0, 30)}...`); // Debugging
         };
         reader.readAsDataURL(attachedFile);
+    } else {
+        console.log('No file selected'); // Debugging
     }
 });
 
@@ -264,8 +297,6 @@ function showImageNameBox(filename) {
 function hideImageNameBox() {
     imageNameBox.style.display = 'none';
     imageNameSpan.textContent = '';
-    attachedFile = null;
-    attachedFileDataURL = null;
     fileInput.value = '';
     removeFileAttachedIndicator();
 }
@@ -315,6 +346,7 @@ function updateProgressBar(percent) {
 
 // Event listener for remove image button
 removeImageButton.addEventListener('click', function() {
+    console.log('Remove image button clicked'); // Debugging
     hideImageNameBox();
 });
 
@@ -324,6 +356,7 @@ renderMessages();
 // Function to toggle sidebar and button visibility
 function toggleSidebar() {
     sidebar.classList.toggle('closed');
+    console.log(`Sidebar toggled. Closed: ${sidebar.classList.contains('closed')}`); // Debugging
     
     // Show/hide sidebar toggle buttons based on sidebar state
     if (sidebar.classList.contains('closed')) {

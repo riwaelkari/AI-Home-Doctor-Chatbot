@@ -10,7 +10,7 @@ from actual_models.skin_disease_model import process_image
 logger = logging.getLogger(__name__)
 
 class SkinDiseaseChain(BaseChain):
-    def __init__(self, disease_model, llm):
+    def __init__(self, disease_model, llm, class_to_idx):
         """
         Initializes the SkinDiseaseChain.
 
@@ -23,7 +23,8 @@ class SkinDiseaseChain(BaseChain):
         self.get_main_prompt = self.main_prompt()
         self.get_disease = self.return_disease()
         self.awaiting_image = False  # Flag to track if the chain is waiting for an image
-
+        self.class_to_idx = class_to_idx
+        self.image_provided = False  # Flag to track if an image has been provided and processed
     def main_prompt(self):
         """
         Creates the LLMChain with a specific prompt template.
@@ -31,15 +32,23 @@ class SkinDiseaseChain(BaseChain):
         Returns:
             LLMChain: The initialized chain.
         """
-        template =  """
-You are a friendly medical assistant at home specialized in diagnosing skin diseases based on images. Interact with the user {user_input} and mainly Ask him to give you a picture of his skin issue by asking him to attach the picture using the attach button on the left side of the text box.
+        
+
+        template = """
+You are a friendly medical assistant specialized in diagnosing skin diseases based on images.
+
+- If the user has already uploaded an image, do not ask for another one unless the user mentions they want to upload a new image. Continue with the conversation based on the image that was provided.
+- If no image has been uploaded yet, kindly ask the user to upload a picture of their skin issue using the attach button on the left side of the text box.
+- Be polite and empathetic, reminding the user that you can only diagnose based on the image they provide.
+- If the user asks for general advice or next steps, politely remind them that you're here to assist with image-based diagnoses and suggest they consult a healthcare professional for further guidance if needed.
+
+User input: {user_input}
 
 Conversation history: {conversation_history}
 
-Answer based on Conversation history also.
-
-Be natural, dont say: User said
+- Respond only based on the image provided and the conversation history. Be friendly, avoid giving advice beyond what can be inferred from the image diagnosis, and gently redirect the user to provide a new image only if necessary.
 """
+
         
         return PromptTemplate(
             input_variables=["user_input","conversation_history"],template= template)
@@ -52,7 +61,7 @@ Be natural, dont say: User said
             LLMChain: The initialized chain with the disease-specific prompt.
         """
         template = """
-You are a friendly home doctor. Inform the User with his disease results without mentioning numbers: {disease}
+You are a friendly home doctor. Inform the User with his disease results without mentioning numbers directly: {predicted_disease}
 *Conversation History:* 
 {conversation_history}
 
@@ -61,40 +70,17 @@ You are a friendly home doctor. Inform the User with his disease results without
 
 
 Be natural, dont say: User said
-
+Only use information from the prediction or direct user input. Do not generate any additional insights or answers on your own.
+*Do not mention
 """
         return PromptTemplate(
-            input_variables=["user_input","conversation_history"],template= template)
+            input_variables=["user_input","conversation_history","predicted_disease"],template= template)
 
-    
- ##############################################################################################################
-
-    def extract_disease_from_image(self, image_bytes, device='cpu'):
-        """
-    Converts image bytes to RGB and predicts the disease using the disease model.
-
-    Args:
-        image_bytes (bytes): The image data in bytes.
-        device (str, optional): Device to perform computation ('cpu' or 'cuda'). Defaults to 'cpu'.
-
-    Returns:
-        str or None: The predicted disease if successful, else None.
-       """
-    
-    # Step 1: Convert bytes to PIL Image and ensure it's in RGB
-        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        logger.info("Image successfully converted to RGB.")
-
-        # Step 2: Predict the disease using the classifier's `predict` method
-        # Assuming `predict` handles preprocessing internally
-        predicted_disease = self.disease_model.predict(img, device=device)
-        
-        return predicted_disease
 
 ##########################################################################################################################
 
 
-    def generate_response(self, user_input: str, conversation_history: str, image_bytes=None, device='cpu') -> dict:
+    def generate_response(self, user_input: str, conversation_history: str, image_path, device='cpu') -> dict:
         """
         Generates a response based on user input, conversation history, and an optional image.
 
@@ -109,16 +95,34 @@ Be natural, dont say: User said
         """
         predicted_disease = None
         response = ""
-        if image_bytes:
+
+      
+        if image_path:
             # Extract disease from image
-            predicted_disease = self.extract_disease_from_image(image_bytes, device=device)
+            predicted_disease = self.disease_model.predict(image_path, device=device,class_to_index = self.class_to_idx)
             print(predicted_disease)
+
+
+            # Append 'image processed' to the conversation history for future checks
+            #conversation_history += "\n[Image Processed]"
+            # Set the flag indicating that an image has been provided and diagnosed
+            self.image_provided = True
             # Generate response using the disease-specific prompt
             response = self.llm.invoke(self.get_disease.format(
                 user_input=user_input,
                 conversation_history=conversation_history,
                 predicted_disease=predicted_disease
             ))
+        #elif self.image_provided:
+        #    # If an image was already provided and diagnosed, respond based on that diagnosis
+        #    response = "I have already analyzed the provided image. If you have another skin issue, please upload a new image. Otherwise, I can only diagnose based on images."
+
+          # Check if the conversation history already contains a processed image
+        #elif "image processed" in conversation_history.lower():
+        #    print("wosil lahon lezim")
+        #    # Image has already been processed, respond accordingly
+        #    response = "I have already analyzed the provided image. If you need further assistance, please upload a new image. Otherwise, I can only diagnose based on images."
+
         else:
             # No image provided; prompt the user to upload an image
             response = self.llm.invoke(self.get_main_prompt.format(
@@ -126,7 +130,15 @@ Be natural, dont say: User said
                 conversation_history=conversation_history
             ))
 
+            # Check if the response is from the LLM and has a `.content` attribute
+        if hasattr(response, 'content'):
+            # It's an LLM response with a content attribute
+            final_response = response.content
+        else:
+            # It's a manually assigned string response
+            final_response = response
+
         return {
-                    'response': response.content,
+                    'response': final_response,
                     'predicted_disease': ""
                 }
