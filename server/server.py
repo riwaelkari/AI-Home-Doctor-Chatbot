@@ -73,6 +73,8 @@ def chat():
 
         if message.strip().lower() == "reset":
             memory.clear()  # Clear the conversation memory
+            formatted_history = ''
+            agent.set_default_chain(agent.chains.get('base_model'))
 
         # Retrieve conversation history
         memory_variables = memory.load_memory_variables({})
@@ -90,10 +92,13 @@ def chat():
         # Add user and assistant messages to memory
         memory.chat_memory.add_user_message(message)
         memory.chat_memory.add_ai_message(response_dict.get('response',''))
-
+        print(response_dict.get('bot_icon', 'images/nurse_icon.png'))
+        print(response_dict['bot_icon'])
         # Prepare the response payload
         response_payload = {
-            'gpt_response': response_dict.get('response')
+            'gpt_response': response_dict.get('response'),
+            'bot_name': response_dict.get('bot_name', 'Nurse'),
+            'bot_icon': response_dict.get('bot_icon', 'images/nurse_icon.png')
         }
         return jsonify(response_payload), 200
 

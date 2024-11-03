@@ -156,7 +156,7 @@ def create_faiss_index(docs, embeddings):
     
 # Calculate the possible range of severity scores based on the symptom severity dataset
 def calc_severity_of_disease(list_of_symtpoms_severities):
-    severity_df = pd.read_csv('../dataset/Symptom-severity.csv')
+    severity_df = pd.read_csv('dataset/Symptom-severity.csv')
     min_severity_weight = severity_df['weight'].min() #1
     max_severity_weight = severity_df['weight'].max() #7
     average_severity = sum(list_of_symtpoms_severities)/len(list_of_symtpoms_severities)

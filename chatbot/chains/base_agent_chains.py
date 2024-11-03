@@ -15,41 +15,42 @@ class BaseModelChain(BaseChain):
         self.llm = llm
         self.get_main_prompt = self.main_prompt()
         self.get_describe_prompt = self.describe_prompt()
-
     def main_prompt(self):
+        template = """
+        You are an AI assistant that can perform different types of disease diagnoses.
+        Currently, you have access to the following models:
 
-        template="""
-            You are an AI assistant that can perform different types of disease diagnoses.
-            Currently, you have access to the following models:
+        1. Symptom Disease Model: Analyzes symptoms to diagnose diseases.
+        2. Skin Disease Model: Classifies skin diseases based on images.
 
-            1. Symptom Disease Model: Analyzes symptoms to diagnose diseases.
-            2. Skin Disease Model: Classifies skin diseases based on images.
+        Please choose which model you'd like to use by typing the corresponding number (1 or 2):
 
-            Please choose which model you'd like to use by typing the corresponding number (1 or 2):
-            insert a new line
-            1. Symptom Disease Model: Analyzes symptoms to diagnose diseases.
-            insert a new line
-            2. Skin Disease Model: Classifies skin diseases based on images.
-            insert a new line
-            If you need more information about either model, feel free to ask!
+        1. Symptom Disease Model: Analyzes symptoms to diagnose diseases.
+        2. Skin Disease Model: Classifies skin diseases based on images.
 
-            Note: *if they don't type a number, prompt them to do that again and tell them you can give descriptions for all models*
-            Understand from the user input if they want to switch models, if so tell them to strictly write the number of the model only:
-            Example: user: go to 1 
-            Bot: Strictly enter the number of the model only. It seems like you want to go to the first model, enter "1" 
+        If you need more information about either model, feel free to ask!
 
-            User Input:{user_input}
+        Note: *If the user doesn't type a number, prompt them to do that again and inform them that you can provide descriptions for all models.*
+        Understand from the user input if they want to switch models. If so, instruct them to strictly write the number of the model only.
+        Example:
+            - **User:** go to 1
+            - **Bot:** Strictly enter the number of the model only. It seems like you want to go to the first model. Please enter "1".
 
-            Conversation History:
-            {conversation_history}
+        **User Input:** {user_input}
 
-            Be natural, don't say: User said
-            Your response:
-            """
+        **Conversation History:**
+        {conversation_history}
+
+        Be natural; don't say: "User said"
+        **Your response:**
+        """
   
         return PromptTemplate(
-            input_variables=["user_input","conversation_history"], template=template)
+            input_variables=["user_input", "conversation_history"],
+        template=template
+    )
 
+ 
     def describe_prompt(self):
         template="""
             You are an AI assistant that will answer the user input based on the info you have.

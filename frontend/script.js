@@ -1,3 +1,5 @@
+// script.js
+
 // Configuration
 const API_CHAT_URL = "http://127.0.0.1:5000/chat"; // Ensure Flask server is running
 
@@ -27,9 +29,13 @@ let diagnosingInterval;
 let attachedFile = null;
 let attachedFileDataURL = null; // Variable to store the Data URL of the attached image
 
+// Variables to store current bot name and icon
+let currentBotName = "Nurse";
+let currentBotIcon = 'images/nurse_icon.png';
+
 // Initial Chat State
 let messages = [
-    { role: "bot", content: "Hello! How can I assist you today?" }
+    { role: "bot", content: "Hello! How can I assist you today?", bot_name: currentBotName, bot_icon: currentBotIcon }
 ];
 
 // Function to render messages
@@ -59,20 +65,23 @@ function renderMessages() {
 
             userContainer.appendChild(chatContent);
             userContainer.appendChild(userIcon);
-            chatDisplay.appendChild(userContainer);
+            chatDisplay.appendChild(userContainer);  
         } else {
-            // Bot Message
+            console.log("Rendering bot message with icon:", message.bot_icon);
+            // Bot Message i can
             const botContainer = document.createElement('div');
             botContainer.className = 'chat-container bot-chat-container';
 
             const botIcon = document.createElement('img');
-            botIcon.src = 'images/logo-1-removebg.png'; // Ensure this image exists
-            botIcon.alt = 'Doctor';
+            botIcon.src = message.bot_icon || 'images/nurse_icon.png';
+            botIcon.alt = 'Bot';
             botIcon.className = 'message-icon';
 
             const chatContent = document.createElement('div');
             chatContent.className = 'chat-content bot-bubble chat-bubble';
-            chatContent.innerHTML = `<span class="sender-label">Doctor:</span> <span>${sanitize(message.content)}</span>`;
+
+            const botName = message.bot_name || 'Doctor';
+            chatContent.innerHTML = `<span class="sender-label">${sanitize(botName)}:</span> <span>${sanitize(message.content)}</span>`;
 
             botContainer.appendChild(botIcon);
             botContainer.appendChild(chatContent);
@@ -102,32 +111,20 @@ async function sendMessage() {
         console.log('No message or file to send'); // Debugging
         return;
     }
-    if(attachedFile){
-         console.log('test1')
-    }
 
     // Append user message to chat display
     messages.push({ role: "user", content: userText, imageData: attachedFileDataURL });
     renderMessages();
 
-    if(attachedFile){
-        console.log('test2')
-   }
     // Clear input
     userInput.value = "";
-    if(attachedFile){
-        console.log('test3')
-   }
+
     // Hide the image name box since the image is being sent
     hideImageNameBox();
-    if(attachedFile){
-        console.log('test4')
-   }
+
     // Show "Diagnosing..." animation
     showDiagnosingAnimation();
-    if(attachedFile){
-        console.log('test1')
-   }
+
     // Show upload indicator if file is attached
     if (attachedFile) {
         showUploadIndicator(); // This will now include a progress bar
@@ -162,7 +159,13 @@ async function sendMessage() {
         if (response.ok) {
             const data = await response.json();
             const gptResponse = data.gpt_response || "No response from the chatbot.";
+            const botName = data.bot_name || "Doctor";
+            const botIconUrl = data.bot_icon;
 
+            // Update current bot name and icon essa bzbt
+            currentBotName = botName;
+            currentBotIcon = botIconUrl;
+            console.log("Current Bot Icon:", currentBotIcon);
             // Stop the "Diagnosing..." animation
             stopDiagnosingAnimation();
 
@@ -170,7 +173,14 @@ async function sendMessage() {
             messages.pop();
 
             // Append the actual response
-            messages.push({ role: "bot", content: gptResponse });
+            messages.push({
+                role: "bot",
+                content: gptResponse,
+                bot_name: botName,
+                bot_icon: botIconUrl
+            });
+
+            renderMessages();
         } else {
             // Handle non-200 responses
             console.error(`Server responded with status ${response.status}`);
@@ -178,7 +188,13 @@ async function sendMessage() {
             const errorMessage = errorData.error || "An error occurred while processing your request.";
             stopDiagnosingAnimation();
             messages.pop();
-            messages.push({ role: "bot", content: `Error: ${errorMessage}` });
+            messages.push({
+                role: "bot",
+                content: `Error: ${errorMessage}`,
+                bot_name: currentBotName,
+                bot_icon: currentBotIcon
+            });
+            renderMessages();
         }
 
         if (attachedFile) {
@@ -189,13 +205,17 @@ async function sendMessage() {
             removeFileAttachedIndicator();
         }
 
-        renderMessages();
     } catch (error) {
         // Handle network or other errors
         console.error('An error occurred during the transaction:', error);
         stopDiagnosingAnimation();
         messages.pop();
-        messages.push({ role: "bot", content: "An error occurred while sending your message. Please try again." });
+        messages.push({
+            role: "bot",
+            content: "An error occurred while sending your message. Please try again.",
+            bot_name: currentBotName,
+            bot_icon: currentBotIcon
+        });
 
         if (attachedFile) {
             hideUploadIndicator();
@@ -212,7 +232,12 @@ async function sendMessage() {
 // Function to start "Diagnosing..." live animation
 function showDiagnosingAnimation() {
     let dots = 0;
-    const diagnosingMessage = { role: "bot", content: "Diagnosing..." };
+    const diagnosingMessage = {
+        role: "bot",
+        content: "Diagnosing...",
+        bot_name: currentBotName,
+        bot_icon: currentBotIcon
+    };
     messages.push(diagnosingMessage);
     renderMessages();
 
@@ -308,17 +333,17 @@ function showUploadIndicator() {
         uploadIndicator = document.createElement('div');
         uploadIndicator.id = 'uploadIndicator';
         uploadIndicator.className = 'upload-indicator';
-        
+
         // Create progress bar container
         const progressContainer = document.createElement('div');
         progressContainer.className = 'progress-container';
-        
+
         // Create progress bar
         const progressBar = document.createElement('div');
         progressBar.id = 'uploadProgress';
         progressBar.className = 'progress-bar';
         progressBar.textContent = '0%';
-        
+
         progressContainer.appendChild(progressBar);
         uploadIndicator.appendChild(progressContainer);
 
@@ -357,7 +382,7 @@ renderMessages();
 function toggleSidebar() {
     sidebar.classList.toggle('closed');
     console.log(`Sidebar toggled. Closed: ${sidebar.classList.contains('closed')}`); // Debugging
-    
+
     // Show/hide sidebar toggle buttons based on sidebar state
     if (sidebar.classList.contains('closed')) {
         sidebarToggle.style.display = 'block'; // Show open button
@@ -377,5 +402,5 @@ sidebarToggle.style.display = 'none';
 
 // Scroll the chat to the bottom
 function scrollToBottom() {
-    chatDisplay.scrollTop = chatDisplay.scrollHeight; 
+    chatDisplay.scrollTop = chatDisplay.scrollHeight;
 }
