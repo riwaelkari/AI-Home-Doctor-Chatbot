@@ -94,25 +94,27 @@ Refined Query:"""
 import openai
 
 def model_selector(query, list_of_models):
-    response = openai.ChatCompletion.create(
+    response = openai.chat.completions.create(
         model="gpt-3.5-turbo",  # You can change this to "gpt-4" if preferred
         messages=[
             {
                 "role": "system",
                 "content": f"""
-You are an intelligent assistant designed to identify which model a user is referring to based on their query.
+You are an intelligent assistant designed to determine if the user wants to **select** one of the available models.
 
-Instructions:
+**Instructions:**
 
-- Model 1: If the user's query mentions terms like "symptom disease model," "first model," or any other phrase that indicates Model 1, return `1`.
+- **Model 1:** If the user's query explicitly indicates they want to **select**, **switch to**, or **use** Model 1, and mentions terms like "symptom disease model", "first model", "model 1", or simply "1", return `1`.
 
-- Model 2: If the user's query mentions terms like "skin disease model," "image," "second model," or any other phrase that indicates Model 2, return `2`.
+- **Model 2:** If the user's query explicitly indicates they want to **select**, **switch to**, or **use** Model 2, and mentions terms like "skin disease model", "image model", "second model", "model 2", or simply "2", return `2`.
 
-- Additional Guidelines:
-  
-  - Do not provide explanations or any additional text other than the specified outputs.
-  
-  - Ensure the response is either `1`, `2`, or `"NO OUTPUT"` based on the query.
+- **Non-Selection Queries:** If the user's query does **not** indicate a desire to select or switch models (e.g., they are asking for a description or information about a model), return `"NOTHING"`.
+
+**Additional Guidelines:**
+
+- Do **not** provide explanations or any additional text other than the specified outputs.
+
+- Ensure the response is either `1`, `2`, or `"NOTHING"` based on the query.
 
 **List of Models:**
 {list_of_models}
@@ -123,7 +125,6 @@ Instructions:
                 "content": f"""
 User Query:
 {query}
-
 Model Number:"""
             }
         ],
@@ -143,22 +144,6 @@ Model Number:"""
     else:
         # In case of unexpected output, you might want to handle it accordingly
         return ""
-
-# Example Usage:
-if __name__ == "__main__":
-    list_of_models = """
-1. Symptom Disease Model
-2. Skin Disease Model
-"""
-    queries = [
-        "Can you tell me more about the first model?",
-        "I need information on the skin disease model.",
-        "What is the weather today?"
-    ]
-    
-    for q in queries:
-        model_number = model_selector(q, list_of_models)
-        print(f"Query: '{q}' => Model Number: {model_number}")
 
 def query_refiner_severity(conversation, query):
     response = openai.chat.completions.create(

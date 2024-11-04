@@ -97,23 +97,18 @@ class Agent:
 
         logger.info(f"Delegating to chain: {chain.__class__.__name__}")
 
-        try:
-            response = chain.generate_response(user_input, conversation_history, image_path)
-            response['bot_name'] = self.current_chain_name
+        if user_input == 'reset':
+                user_input = 'Hi'
+        response = chain.generate_response(user_input, conversation_history, image_path)
+        response['bot_name'] = self.current_chain_name
 
             # Include bot icon based on current chain
-            if self.current_chain_name == 'Symptom Disease Doctor':
+        if self.current_chain_name == 'Symptom Disease Doctor':
                 response['bot_icon'] = 'images/symptom_disease_icon.png'
-            elif self.current_chain_name == 'Skin Disease Doctor':
+        elif self.current_chain_name == 'Skin Disease Doctor':
                 response['bot_icon'] = 'images/skin_disease_icon.png'
-            else:
+        else:
                 response['bot_icon'] = 'images/nurse_icon.png'
-            print(response['bot_icon'])
-            return response
-        except Exception as e:
-            logger.error(f"Error in chain '{chain.__class__.__name__}': {e}", exc_info=True)
-            return {
-                'response': "An error occurred while processing your request. Please try again later.",
-                'bot_name': self.current_chain_name,
-                'bot_icon': response['bot_icon']
-            }
+        print(response['bot_icon'])
+        return response
+

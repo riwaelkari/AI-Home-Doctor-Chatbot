@@ -74,8 +74,7 @@ def chat():
         if message.strip().lower() == "reset":
             memory.clear()  # Clear the conversation memory
             formatted_history = ''
-            agent.set_default_chain(agent.chains.get('base_model'))
-
+            
         # Retrieve conversation history
         memory_variables = memory.load_memory_variables({})
         conversation_history = memory_variables.get('conversation_history', [])
