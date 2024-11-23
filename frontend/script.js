@@ -8,6 +8,11 @@ const chatDisplay = document.getElementById('chatDisplay');
 const userInput = document.getElementById('userInput');
 const sendButton = document.getElementById('sendButton');
 
+// Language Toggle Elements
+const languageToggle = document.getElementById('languageToggle');
+const languageLabel = document.getElementById('languageLabel');
+let currentLanguage = 'En'; // Default language is English
+
 // Sidebar toggle elements
 const sidebarToggle = document.getElementById('sidebarToggle'); // Button to open sidebar
 const closeSidebarButton = document.getElementById('closeSidebar'); // Button to close sidebar
@@ -33,13 +38,90 @@ let attachedFileDataURL = null; // Variable to store the Data URL of the attache
 let currentBotName = "Nurse";
 let currentBotIcon = 'images/nurse_icon.png';
 
+
+// Recording Variables
+let isRecording = false;
+let mediaRecorder;
+let recordedChunks = [];
+let audioStream;
+let audioContext;
+let analyser;
+let dataArray;
+let animationId;
+
+// Elements for audio recording
+const recordButton = document.getElementById('recordButton'); // Microphone button
+const audioRecordingContainer = document.getElementById('audioRecordingContainer');
+const startRecordingButton = document.getElementById('startRecordingButton');
+const stopRecordingButton = document.getElementById('stopRecordingButton');
+const sendAudioButton = document.getElementById('sendAudioButton');
+const cancelAudioButton = document.getElementById('cancelAudioButton');
+const waveformCanvas = document.getElementById('waveformCanvas');
+
 // Initial Chat State
 let messages = [
-    { role: "bot", content: "Hello! How can I assist you today?", bot_name: currentBotName, bot_icon: currentBotIcon }
+    { role: "bot", content: "Hello! How can I assist you today?"+"\n"+" مرحبًا! كيف يمكنني مساعدتك اليوم؟", bot_name: currentBotName, bot_icon: currentBotIcon }
 ];
 
 // Function to render messages
 function renderMessages() {
+    chatDisplay.innerHTML = ''; // Clear current messages
+    messages.forEach(message => {
+        if (message.role === "user") {
+            // User Message
+            const userContainer = document.createElement('div');
+            userContainer.className = 'chat-container user-chat-container';
+
+            const chatContent = document.createElement('div');
+            chatContent.className = 'chat-content user-bubble chat-bubble';
+
+            let messageContent = `<span class="sender-label">You:</span> <span>${sanitize(message.content)}</span>`;
+
+            if (message.imageData) {
+                messageContent += `<br><img src="${message.imageData}" alt="Attached Image" class="image-attachment">`;
+            }
+
+            if (message.audioData) {
+                messageContent += `<br><audio controls src="${message.audioData}"></audio>`;
+            }
+            chatContent.innerHTML = messageContent;
+
+            const userIcon = document.createElement('img');
+            userIcon.src = 'images/user.png'; // Ensure this image exists
+            userIcon.alt = 'User';
+            userIcon.className = 'message-icon';
+
+            userContainer.appendChild(chatContent);
+            userContainer.appendChild(userIcon);
+            chatDisplay.appendChild(userContainer);  
+        } else {
+            console.log("Rendering bot message with icon:", message.bot_icon);
+            // Bot Message
+            const botContainer = document.createElement('div');
+            botContainer.className = 'chat-container bot-chat-container';
+
+            const botIcon = document.createElement('img');
+            botIcon.src = message.bot_icon || 'images/nurse_icon.png';
+            botIcon.alt = 'Bot';
+            botIcon.className = 'message-icon';
+
+            const chatContent = document.createElement('div');
+            chatContent.className = 'chat-content bot-bubble chat-bubble';
+
+            const botName = message.bot_name || 'Doctor';
+// Inside renderMessages function
+            chatContent.innerHTML = `<span class="sender-label">${sanitize(botName)}:</span> <span>${sanitize(message.content).replace(/\n/g, '<br>')}</span>`;
+
+            botContainer.appendChild(botIcon);
+            botContainer.appendChild(chatContent);
+            chatDisplay.appendChild(botContainer);
+        }
+    });
+
+    // Automatically scroll to the bottom after rendering messages
+    scrollToBottom();
+}
+function renderDiagnosingMessages() {
     chatDisplay.innerHTML = ''; // Clear current messages
     messages.forEach(message => {
         if (message.role === "user") {
@@ -68,7 +150,7 @@ function renderMessages() {
             chatDisplay.appendChild(userContainer);  
         } else {
             console.log("Rendering bot message with icon:", message.bot_icon);
-            // Bot Message i can
+            // Bot Message
             const botContainer = document.createElement('div');
             botContainer.className = 'chat-container bot-chat-container';
 
@@ -81,7 +163,8 @@ function renderMessages() {
             chatContent.className = 'chat-content bot-bubble chat-bubble';
 
             const botName = message.bot_name || 'Doctor';
-            chatContent.innerHTML = `<span class="sender-label">${sanitize(botName)}:</span> <span>${sanitize(message.content)}</span>`;
+// Inside renderMessages function
+            chatContent.innerHTML = `<span class="sender-label">${sanitize(botName)}:</span> <span>${sanitize(message.content).replace(/\n/g, '<br>')}</span>`;
 
             botContainer.appendChild(botIcon);
             botContainer.appendChild(chatContent);
@@ -92,7 +175,6 @@ function renderMessages() {
     // Automatically scroll to the bottom after rendering messages
     scrollToBottom();
 }
-
 // Function to sanitize user input to prevent XSS
 function sanitize(str) {
     const temp = document.createElement('div');
@@ -107,15 +189,16 @@ async function sendMessage() {
     const userText = userInput.value.trim();
     console.log(`User input: "${userText}"`); // Debugging
 
-    if (userText === "" && !attachedFile) {
-        console.log('No message or file to send'); // Debugging
+    if (userText === "" && !attachedFile && !recordedChunks.length) {
+        console.log('No message, file, or audio to send'); // Debugging
         return;
     }
-
+    console.log(userText);
+    if (!recordedChunks.length){
     // Append user message to chat display
     messages.push({ role: "user", content: userText, imageData: attachedFileDataURL });
     renderMessages();
-
+    }
     // Clear input
     userInput.value = "";
 
@@ -133,6 +216,8 @@ async function sendMessage() {
     // Create FormData
     let formData = new FormData();
     formData.append('message', userText);
+    formData.append('language', currentLanguage); // Include the selected language
+
     if (attachedFile) {
         formData.append('image', attachedFile, attachedFile.name); // Include filename
         console.log(`Appending image: ${attachedFile.name}`); // Debugging
@@ -162,7 +247,7 @@ async function sendMessage() {
             const botName = data.bot_name || "Doctor";
             const botIconUrl = data.bot_icon;
 
-            // Update current bot name and icon essa bzbt
+            // Update current bot name and icon
             currentBotName = botName;
             currentBotIcon = botIconUrl;
             console.log("Current Bot Icon:", currentBotIcon);
@@ -245,7 +330,7 @@ function showDiagnosingAnimation() {
     diagnosingInterval = setInterval(() => {
         dots = (dots + 1) % 4; // Cycle between 0, 1, 2, 3 dots
         diagnosingMessage.content = "Diagnosing" + ".".repeat(dots);
-        renderMessages();
+        renderDiagnosingMessages();//hererender
     }, 500); // Update every half second
 }
 
@@ -276,6 +361,27 @@ userInput.addEventListener('keypress', function(event) {
 attachButton.addEventListener('click', function () {
     console.log('Attach button clicked'); // Debugging
     fileInput.click(); // Trigger the file input to open the file explorer
+});
+
+// Event listener for language toggle button
+languageToggle.addEventListener('click', function() {
+    if (currentLanguage === 'En') {
+        currentLanguage = 'Ar';
+    } else {
+        currentLanguage = 'En';
+    }
+    languageLabel.textContent = currentLanguage;
+    console.log(`Language toggled to ${currentLanguage}`); // Debugging
+
+    // Update the lang attribute on the body element
+    document.body.setAttribute('lang', currentLanguage === 'Ar' ? 'ar' : 'en');
+
+    // Update text direction based on language
+    if (currentLanguage === 'Ar') {
+        document.body.style.direction = 'rtl'; // Right-to-left for Arabic
+    } else {
+        document.body.style.direction = 'ltr'; // Left-to-right for English
+    }
 });
 
 // Handle file selection
@@ -403,4 +509,210 @@ sidebarToggle.style.display = 'none';
 // Scroll the chat to the bottom
 function scrollToBottom() {
     chatDisplay.scrollTop = chatDisplay.scrollHeight;
+}
+
+// ======= AUDIO RECORDING FUNCTIONALITY =======
+
+// Event listener for record button (Microphone button)
+recordButton.addEventListener('click', function () {
+    // Show the audio recording container
+    audioRecordingContainer.style.display = 'flex';
+});
+
+// Event listener for start recording button
+startRecordingButton.addEventListener('click', function () {
+    startRecording();
+});
+
+// Event listener for stop recording button
+stopRecordingButton.addEventListener('click', function () {
+    stopRecording();
+});
+
+// Event listener for send audio button
+sendAudioButton.addEventListener('click', function () {
+    // Hide the audio recording container
+    audioRecordingContainer.style.display = 'none';
+
+    // Send the recorded audio
+    if (recordedChunks.length > 0) {
+        const audioBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+        sendAudio(audioBlob);
+        recordedChunks = [];
+    }
+});
+
+// Event listener for cancel audio button
+cancelAudioButton.addEventListener('click', function () {
+    // Hide the audio recording container
+    audioRecordingContainer.style.display = 'none';
+
+    // Stop recording if recording is in progress
+    if (isRecording) {
+        stopRecording();
+    }
+
+    // Clear recorded chunks
+    recordedChunks = [];
+});
+
+// Start Recording Function
+function startRecording() {
+    console.log('Starting recording...');
+
+    // Check if the browser supports getUserMedia
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(function (stream) {
+                audioStream = stream;
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.start();
+                isRecording = true;
+                startRecordingButton.disabled = true;
+                stopRecordingButton.disabled = false;
+                sendAudioButton.disabled = true;
+                console.log('Recording started.');
+
+                recordedChunks = [];
+
+                mediaRecorder.ondataavailable = function (e) {
+                    if (e.data.size > 0) {
+                        recordedChunks.push(e.data);
+                    }
+                };
+
+                mediaRecorder.onstop = function () {
+                    console.log('Recording stopped.');
+                    isRecording = false;
+                    startRecordingButton.disabled = false;
+                    stopRecordingButton.disabled = true;
+                    sendAudioButton.disabled = false;
+
+                    // Stop the waveform visualization
+                    cancelAnimationFrame(animationId);
+                    audioContext.close();
+                };
+
+                // Start waveform visualization
+                visualize(stream);
+            })
+            .catch(function (err) {
+                console.error('The following error occurred: ' + err);
+            });
+    } else {
+        console.error('getUserMedia not supported on your browser!');
+    }
+}
+
+// Stop Recording Function
+function stopRecording() {
+    console.log('Stopping recording...');
+    mediaRecorder.stop();
+    audioStream.getTracks().forEach(track => track.stop());
+}
+
+// Function to visualize the audio waveform
+function visualize(stream) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioContext.createMediaStreamSource(stream);
+
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    source.connect(analyser);
+
+    const bufferLength = analyser.fftSize;
+    dataArray = new Uint8Array(bufferLength);
+
+    const canvasCtx = waveformCanvas.getContext('2d');
+    waveformCanvas.width = waveformCanvas.offsetWidth;
+    waveformCanvas.height = waveformCanvas.offsetHeight;
+
+    function draw() {
+        animationId = requestAnimationFrame(draw);
+
+        analyser.getByteTimeDomainData(dataArray);
+
+        canvasCtx.fillStyle = '#0E1117';
+        canvasCtx.fillRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+
+        canvasCtx.lineWidth = 2;
+        canvasCtx.strokeStyle = '#831434';
+
+        canvasCtx.beginPath();
+
+        var sliceWidth = waveformCanvas.width * 1.0 / bufferLength;
+        var x = 0;
+
+        for (var i = 0; i < bufferLength; i++) {
+
+            var v = dataArray[i] / 128.0;
+            var y = v * waveformCanvas.height / 2;
+
+            if (i === 0) {
+                canvasCtx.moveTo(x, y);
+            } else {
+                canvasCtx.lineTo(x, y);
+            }
+
+            x += sliceWidth;
+        }
+
+        canvasCtx.lineTo(waveformCanvas.width, waveformCanvas.height / 2);
+        canvasCtx.stroke();
+    }
+
+    draw();
+}
+
+// Function to send audio to server
+function sendAudio(audioBlob) {
+    console.log('Sending audio to server...');
+
+    // Append user message to chat display with audio player
+    const audioURL = URL.createObjectURL(audioBlob);
+    messages.push({ role: "user", content: "Voice Message:", audioData: audioURL });
+    renderMessages();
+
+    // Show "Diagnosing..." animation
+    showDiagnosingAnimation();
+
+    // Create FormData
+    let formData = new FormData();
+    formData.append('audio', audioBlob, 'RecordedAudio.webm');
+    formData.append('language', currentLanguage); // Include the selected language
+
+    // Send the audio to the server
+    fetch(API_CHAT_URL, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        const transcribedText = data.gpt_response || "Could not transcribe audio.";
+        const botName = data.bot_name || "Nurse";
+        const botIconUrl = data.bot_icon;
+
+        // Stop "Diagnosing..." animation
+        stopDiagnosingAnimation();
+        // Remove "Diagnosing..." message
+        messages.pop();
+
+        
+
+        // Append bot response
+        messages.push({
+            role: "bot",
+            content: data.gpt_response,
+            bot_name: botName,
+            bot_icon: botIconUrl
+        });
+        renderMessages();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        stopDiagnosingAnimation();
+        messages.pop();
+        messages.push({ role: "bot", content: "An error occurred while processing your audio. Please try again." });
+        renderMessages();
+    });
 }

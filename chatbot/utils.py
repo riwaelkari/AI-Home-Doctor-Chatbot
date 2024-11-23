@@ -56,17 +56,17 @@ def query_refiner(query, disease):
                 "content": f"""
 You are a helpful assistant that refines user queries based on the conversation context.
 
-**Instructions:**
+Instructions:
 
-- If the user's query **includes** any of the words **"description"**, **"precautions"**, or **"severity"**, generate a question in the format:
+- If the user's query includes any of the words "description", "precautions", or "severity", generate a question in the format:
 
-  **"What is/are [description/precautions/severity] of {disease}?"**
+  "What is/are [description/precautions/severity] of {disease}?"
 
-- Ensure that the keyword from the user's query (**"description"**, **"precautions"**, or **"severity"**) is used in your formulated question.
+- Ensure that the keyword from the user's query ("description", "precautions", or "severity") is used in your formulated question.
 
-- **If the user's input does NOT include any of these keywords, respond with:**
+- If the user's input does NOT include any of these keywords, respond with:
 
-  **"NO OUTPUT"**
+  "NO OUTPUT"
 
 - Do not generate any additional text or explanations.
 """
@@ -93,31 +93,37 @@ Refined Query:"""
         return output
 import openai
 
-def model_selector(query, list_of_models):
+import openai
+
+def model_selector(query):
     response = openai.chat.completions.create(
-        model="gpt-3.5-turbo",  # You can change this to "gpt-4" if preferred
+        model="gpt-3.5-turbo",  # Change to "gpt-4" if preferred
         messages=[
             {
                 "role": "system",
-                "content": f"""
-You are an intelligent assistant designed to determine if the user wants to **select** one of the available models.
+                "content": """
+You are an intelligent assistant designed to determine if the user wants to select one of the available models.
 
-**Instructions:**
+Instructions:
 
-- **Model 1:** If the user's query explicitly indicates they want to **select**, **switch to**, or **use** Model 1, and mentions terms like "symptom disease model", "first model", "model 1", or simply "1", return `1`.
+- Model 1: If the user's query indicates they want to select, switch to, or use Model 1, and mentions terms like symptom disease model, first model, model 1, or simply 1, return 1.
 
-- **Model 2:** If the user's query explicitly indicates they want to **select**, **switch to**, or **use** Model 2, and mentions terms like "skin disease model", "image model", "second model", "model 2", or simply "2", return `2`.
+- Model 2: If the user's query indicates they want to select, switch to, or use Model 2, and mentions terms like skin disease model, image model, second model, model 2, or simply 2, return 2.
 
-- **Non-Selection Queries:** If the user's query does **not** indicate a desire to select or switch models (e.g., they are asking for a description or information about a model), return `"NOTHING"`.
+- Model 3: If the user's query indicates they want to select, switch to, or use Model 3, and mentions terms like Dona, prescription model, reminder model, third model, model 3, or simply 3, return 3.
 
-**Additional Guidelines:**
+- Non-Selection Queries: If the user's query does not indicate a desire to select or switch models (e.g., they are asking for a description or information about a model), return NOTHING.
 
-- Do **not** provide explanations or any additional text other than the specified outputs.
+Additional Guidelines:
 
-- Ensure the response is either `1`, `2`, or `"NOTHING"` based on the query.
+- Do not provide explanations or any additional text other than the specified outputs.
 
-**List of Models:**
-{list_of_models}
+- Ensure the response is either 1, 2, 3, or NOTHING based on the query.
+
+List of Models:
+- Symptom Disease model - 1 - Model 1
+- Skin Disease model - 2 - Model 2
+- Dona (Prescription Reminder) - 3 - Model 3
 """
             },
             {
@@ -128,8 +134,8 @@ User Query:
 Model Number:"""
             }
         ],
-        temperature=0,  # Set to 0 for deterministic responses
-        max_tokens=10,   # Sufficient for short outputs like "1", "2", or "NO OUTPUT"
+        temperature=0,  # For deterministic responses
+        max_tokens=10,   # Sufficient for "1", "2", "3", or "NOTHING"
         top_p=1,
         frequency_penalty=0,
         presence_penalty=0
@@ -137,13 +143,14 @@ Model Number:"""
     
     output = response.choices[0].message.content.strip()
     
-    if output == "NO OUTPUT":
+    if output == "NOTHING":
         return ""
-    elif output in {"1", "2"}:
+    elif output in {"1", "2", "3"}:
         return int(output)
     else:
-        # In case of unexpected output, you might want to handle it accordingly
+        # Handle unexpected output
         return ""
+
 
 def query_refiner_severity(conversation, query):
     response = openai.chat.completions.create(
@@ -154,17 +161,17 @@ def query_refiner_severity(conversation, query):
                 "content": """
 You are a helpful assistant that refines user queries based on the conversation context.
 
-**Instructions:**
+Instructions:
 
-- Identify all symptoms mentioned in the **most recent user message**.
+- Identify all symptoms mentioned in the most recent user message.
 
 - For each symptom, generate a question in the format:
 
-  **"What is the severity of [symptom]?"**
+  "What is the severity of [symptom]?"
 
-- **If no symptoms are mentioned, respond with:**
+- If no symptoms are mentioned, respond with:
 
-  **"NO OUTPUT"**
+  "NO OUTPUT"
 
 - Do not generate any additional text or explanations.
 """
@@ -204,21 +211,20 @@ def query_refiner_models(query, list_of_models):
                 "content": f"""
 You are a helpful assistant that refines user queries based on the conversation context.
 
-**Instructions:**
+Instructions:
 
-- If the user's query is requesting **descriptions** of any model(s) from the provided list, generate questions in the format:
+- If the user's query is explicitely requesting descriptions of any model(s) from the provided list, generate questions in the format:
 
-  **"What is the description of [model name]?"**
+  "What is the description of [model name]?"
 
 - Generate one question for each model the user is asking about.
 
-- **If the user's input does NOT request descriptions, respond with:**
-
-  **"NO OUTPUT"**
+NOTE:
+- If the user's input does NOT request descriptions, respond with: NOTHING
 
 - Do not generate any additional text or explanations.
 
-**List of Models:**
+List of Models:
 {list_of_models}
 """
             },

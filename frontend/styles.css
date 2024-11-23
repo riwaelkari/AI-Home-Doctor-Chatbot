@@ -1,4 +1,3 @@
-/* Overall Background and Text Color */
 body {
     margin: 0;
     font-family: Arial, sans-serif;
@@ -98,6 +97,7 @@ body {
     flex-direction: row;
     align-items: flex-start;
     margin-bottom: 10px;
+    transition: all 0.3s ease; /* Smooth transitions to prevent twitching */
 }
 
 /* Bot Chat Container */
@@ -117,7 +117,6 @@ body {
     margin: 10px;
     object-fit: contain; 
     border-radius: 50%;
-   
 }
 
 /* Chat Bubbles */
@@ -129,12 +128,14 @@ body {
     position: relative;
     font-size: 16px; /* Increased font size */
     line-height: 1.6; /* Adjust line height for more spacing between lines */
+    word-wrap: break-word;
 }
 
 .bot-bubble {
     background-color: #262730;
     color: #fff;
     text-align: left;
+    margin-left: 10px; /* Space between icon and bubble */
 }
 
 .user-bubble {
@@ -142,6 +143,7 @@ body {
     color: #fff;
     text-align: right;
     margin-left: auto;
+    margin-right: 10px; /* Space between bubble and icon */
 }
 
 /* Sender Label */
@@ -171,9 +173,10 @@ body {
     max-height: 50px; /* Adjust as needed */
     overflow: hidden;
     box-sizing: border-box;
+    width: calc(100% - 270px); /* Adjust to match input field */
 }
 
-/* Remove Image Button - Updated */
+/* Remove Image Button */
 #removeImageButton {
     background-color: #8B0000; /* Dark red color */
     border: none;
@@ -310,18 +313,6 @@ body {
     width: calc(100% - 270px); /* Adjust to match input field */
 }
 
-/* Remove Image Button - Updated */
-#removeImageButton {
-    background-color: #8B0000; /* Dark red color */
-    border: none;
-    color: #f1f1f1; /* White color for visibility */
-    font-size: 16px;
-    cursor: pointer;
-    padding: 5px;
-    margin-left: 10px;
-    border-radius: 3px;
-}
-
 /* Adjust for Sidebar Closed State */
 .sidebar.closed ~ .image-name-box {
     left: 20px; /* Adjusted to provide margin from the edge */
@@ -427,4 +418,109 @@ body {
 /* Image Name Display Box - Ensuring Same Width as Input */
 .image-name-box {
     width: calc(100% - 270px); /* Adjust to match input field width */
+}
+
+/* Audio Recording Container */
+.audio-recording-container {
+    position: fixed;
+    bottom: 100px; /* Adjust as needed */
+    left: 250px; /* Width of the sidebar */
+    right: 0;
+    background-color: #262730;
+    padding: 15px;
+    z-index: 1001;
+    display: none; /* Hidden by default */
+    flex-direction: column;
+    align-items: center;
+    transition: left 0.3s ease, opacity 0.3s ease;
+}
+
+.sidebar.closed ~ .audio-recording-container {
+    left: 0; /* Shift when sidebar is closed */
+}
+
+.recording-buttons {
+    margin-top: 10px;
+}
+
+.recording-buttons button {
+    margin: 0 5px;
+    padding: 10px 15px;
+    background-color: #831434;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.recording-buttons button:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+}
+
+.recording-buttons button:hover:not(:disabled) {
+    background-color: #a61b42;
+}
+
+/* Waveform Canvas */
+#waveformCanvas {
+    width: 100%;
+    max-width: 600px;
+    height: 100px;
+    background-color: #0E1117;
+    border: 1px solid #444;
+}
+
+/* Recording Indicator */
+.record-icon.recording {
+    color: #FF0000; /* Red color when recording */
+}
+
+/* Audio Player Styling */
+audio {
+    margin-top: 10px;
+    width: 100%;
+    max-width: 300px;
+}
+
+/* Language Toggle Button (Top Right Corner) */
+#languageToggle {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    padding: 10px;
+    background-color: #262730;
+    border: none;
+    border-radius: 5px;
+    color: #f1f1f1;
+    font-size: 16px;
+    cursor: pointer;
+    z-index: 1002; /* Ensure it appears above other elements */
+}
+
+#languageToggle:hover {
+    background-color: #333;
+}
+
+#languageToggle:focus {
+    outline: none;
+}
+
+/* Chat Bubbles */
+.chat-bubble {
+    border-radius: 15px;
+    padding: 10px;
+    max-width: 65%;
+    display: inline-block;
+    position: relative;
+    font-size: 16px;
+    line-height: 1.6;
+    word-wrap: break-word;
+}
+
+/* Audio Elements within Chat Bubbles */
+.chat-bubble audio {
+    width: 10cm;
+    margin-top: 5px;
+    outline: none;
 }

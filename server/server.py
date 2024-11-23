@@ -1,13 +1,22 @@
+# server/server.py
+#old server
+
 from flask import Flask, request, jsonify, render_template, send_from_directory
 import logging
 from flask_cors import CORS
+import os
+from werkzeug.utils import secure_filename
+
 from chatbot.agent import Agent
 from langchain.schema import AIMessage, HumanMessage
 from .skin_disease_setup import initialize_skin_disease_chain
 from .symptom_disease_setup import initialize_symptom_disease_chain
 from .base_chain_setup import initialize_base_chain
 from langchain.memory import ConversationBufferMemory
-import os
+from .donna_setup import initialize_donna_chain
+
+# Import the SpeechToTextModel
+from actual_models.audiototext import SpeechToTextModel
 
 # Initialize Flask app
 app = Flask(__name__, static_folder="../frontend", template_folder="../frontend")
@@ -17,18 +26,6 @@ CORS(app)  # Enable CORS for all routes
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize Agent
-agent = Agent()
-
-# Initialize Chains
-initialize_skin_disease_chain(agent)
-initialize_symptom_disease_chain(agent)
-initialize_base_chain(agent)
-agent.set_default_chain(agent.chains.get('base_model'))
-
-# Initialize Conversation Memory
-memory = ConversationBufferMemory(memory_key="conversation_history", return_messages=True)
-
 # Ensure the uploads directory exists
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads')
 if not os.path.exists(UPLOAD_FOLDER):
@@ -36,6 +33,32 @@ if not os.path.exists(UPLOAD_FOLDER):
 
 # Configure Flask to accept file uploads
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Limit maximum file size (e.g., 10MB)
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 Megabytes
+
+# Initialize Speech-to-Text Model with desired model size
+speech_to_text_model = SpeechToTextModel(model_size="base")  # Options: "tiny", "base", "small", "medium", "large"
+
+# Initialize Agent
+agent = Agent()
+
+# Initialize Chains with Exception Handling
+try:
+    initialize_skin_disease_chain(agent)
+    initialize_symptom_disease_chain(agent)
+    initialize_base_chain(agent)
+    initialize_donna_chain(agent)
+    agent.set_default_chain(agent.chains.get('base_model'))
+except Exception as e:
+    logger.error(f"Error initializing chains: {e}", exc_info=True)
+    # Depending on your application's needs, you might want to exit or set a flag here
+    # For example:
+    # import sys
+    # sys.exit(1)
+
+# Initialize Conversation Memory
+memory = ConversationBufferMemory(memory_key="conversation_history", return_messages=True)
 
 # Serve the HTML file
 @app.route('/')
@@ -51,51 +74,89 @@ def serve_static(filename):
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
-        image_path = None  # Initialize image_path to None
-        # Access form data and files
+        image_path = None
+        audio_path = None
         message = request.form.get('message')
+        language = request.form.get('language')  # Retrieve the selected language
+        logger.info(f"Received language: {language}")  # Debugging
+
         image = request.files.get('image')
+        audio = request.files.get('audio')
 
-        # Debugging: Log received message and image
-        print(f"Received message: {message}")
-        print(f"Received files: {request.files}")
+        # Handle image upload
         if image:
-            print(f"Image filename: {image.filename}")
-            # Save the image to the uploads directory
-            image_path = os.path.join(app.config['UPLOAD_FOLDER'], image.filename)
+            image_filename = secure_filename(image.filename)
+            image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_filename)
             image.save(image_path)
-            print(f"Image saved to {image_path}")
-        else:
-            print("No image provided")
+            logger.info(f"Image saved to {image_path}")
 
-        if not message and not image:
-            return jsonify({'error': 'No message or image provided.'}), 400
+        # Handle audio upload
+        if audio:
+            audio_filename = secure_filename(audio.filename)
+            audio_path = os.path.join(app.config['UPLOAD_FOLDER'], audio_filename)
+            audio.save(audio_path)
+            logger.info(f"Audio saved to {audio_path}")
 
-        if message.strip().lower() == "reset":
-            memory.clear()  # Clear the conversation memory
-            formatted_history = ''
-            
+            # Transcribe the audio using SpeechToTextModel
+            try:
+                transcribed_text = speech_to_text_model.transcribe(audio_path)
+                logger.info(f"Transcribed Text: {transcribed_text}")
+                message = transcribed_text  # Use the transcribed text as the message
+            except Exception as e:
+                logger.error(f"Error during transcription: {e}", exc_info=True)
+                return jsonify({'error': 'Audio transcription failed.'}), 500
+
+        if not message and not image and not audio:
+            return jsonify({'error': 'No message, image, or audio provided.'}), 400
+
+        if message and message.strip().lower() == "reset":
+            memory.clear()
+            # Implement any additional reset logic if necessary
+
         # Retrieve conversation history
         memory_variables = memory.load_memory_variables({})
         conversation_history = memory_variables.get('conversation_history', [])
 
         # Prepare conversation history as a formatted string
-        formatted_history = "\n".join([
-            f"{'User' if isinstance(msg, HumanMessage) else 'Assistant'}: {msg.content}" 
-            for msg in conversation_history
-        ])
-        print(image_path)
+        if language == 'Ar':
+            logger.info("Arabic language selected")
+            # Translate the user's input from Arabic to English
+            translated_message = agent.translate_text(message, 'English')
+            logger.info(f"Translated user input to English: {translated_message}")
+            user_input_en = translated_message
+
+        
+        else:
+            logger.info("English language selected")
+            user_input_en = message
+        formatted_history = "\n".join([f"{'Patient' if isinstance(msg, HumanMessage) else msg.metadata.get('bot_name', 'Nurse')}: {msg.content}" 
+                for msg in conversation_history])
+
         # Delegate to the agent
-        response_dict = agent.handle_request(message, formatted_history, image_path)
+        response_dict = agent.handle_request(user_input_en, formatted_history, image_path, language)
 
         # Add user and assistant messages to memory
-        memory.chat_memory.add_user_message(message)
-        memory.chat_memory.add_ai_message(response_dict.get('response',''))
-        print(response_dict.get('bot_icon', 'images/nurse_icon.png'))
-        print(response_dict['bot_icon'])
+        if message:
+            memory.chat_memory.add_user_message(message)
+        elif audio:
+            memory.chat_memory.add_user_message("[Audio Message]")
+        else:
+            memory.chat_memory.add_user_message("[Image Uploaded]")
+
+        ai_message = AIMessage(
+            content=response_dict.get('response', ''),
+            metadata={'bot_name': response_dict.get('bot_name', 'Nurse')})
+
+        memory.chat_memory.add_message(ai_message)
+
+        if (language == 'Ar'):
+            response = agent.translate_text(response_dict.get('response'), 'Arabic')
+
+        else:
+            response = response_dict.get('response')
         # Prepare the response payload
         response_payload = {
-            'gpt_response': response_dict.get('response'),
+            'gpt_response': response,
             'bot_name': response_dict.get('bot_name', 'Nurse'),
             'bot_icon': response_dict.get('bot_icon', 'images/nurse_icon.png')
         }

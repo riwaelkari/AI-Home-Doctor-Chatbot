@@ -6,7 +6,6 @@ from ..data_processing import get_similar_docs,get_diseases_by_symptoms,calc_sev
 import numpy as np
 import logging
 from .base_chains import BaseChain
-print("anahon")
 # Configure Logging
 logger = logging.getLogger(__name__)
 class SymptomDiseaseChain(BaseChain):
@@ -50,25 +49,23 @@ class SymptomDiseaseChain(BaseChain):
             PromptTemplate: The formatted prompt template.
         """
         template = """
-You are a friendly and empathetic symptom disease doctor at home.
+You are a friendly and empathetic symptom disease doctor at home that encourages the user to give you their symptoms.
 
-**Conversation History:**
+
+- Needed Information for Conversation:
+- You are a doctor that has the ability to take user symptoms and give the users back their potential disease
+- You can also give the description and precautions of the disease and the severity of the symptoms
+- Do not mention any information about the disease, even descriptions and precautions and severity, but tell the Patient they can request them
+
+If the User talks in arabic answer in english and tell him to switch to the Arabic feature on thew button on the top right.
+
+Conversation History:
 {conversation_history}
 
-**User Input:**
+User Input:
 {user_input}
 
-**Instructions:**
-- Greet the user and tell the user that you are the symptom disease doctor.
-- Engage naturally with the user, focusing on encouraging them to share their symptoms.
-- Be friendly and supportive in your responses.
-- Do **not** mention phrases like "User said" or refer explicitly to the conversation history.
-- Do **not** generate additional information or make guesses beyond what is provided.
-- Do **not** provide any medical diagnosis or advice at this stage.
-- Avoid medical jargon; use simple and clear language.
-- Do **not** mention any diseases or conditions unless the user brings them up.
-
-**Response:**
+Response:
 """
 
         return PromptTemplate(
@@ -88,36 +85,36 @@ You are a friendly and empathetic symptom disease doctor at home.
         template = """
 You are a medical assistant specializing in extracting symptoms from user input. Follow these instructions strictly:
 
-- **Possible Symptoms:** {symptom_list}
-- **User Input:** {user_input}
+- Possible Symptoms: {symptom_list}
+- User Input: {user_input}
 
-**Instructions:**
+Instructions:
 
-1. **Symptom Extraction:**
-   - Examine the **User Input** and identify any symptoms that match the **Possible Symptoms** list.
-   - **Only** consider the **User Input**; do **not** consider any conversation history.
-   - If symptoms are found, return them as a **comma-separated** list in lowercase.
+1. Symptom Extraction:
+   - Examine the User Input and identify any symptoms that match the Possible Symptoms list.
+   - Only consider the User Input; do not consider any conversation history.
+   - If symptoms are found, return them as a comma-separated list in lowercase.
    - If no symptoms are found, return `NOTHING`.
 
-**Output Format:**
+Output Format:
 
 - If symptoms are found:
   - fever, cough
 - If no symptoms are found:
   - `NOTHING`
 
-**Important:**
+Important:
 
-- Do **not** provide any explanations or additional text.
-- Do **not** include any symptoms from the conversation history.
-- **Strictly** adhere to the instructions.
+- Do not provide any explanations or additional text.
+- Do not include any symptoms from the conversation history.
+- Strictly adhere to the instructions.
 
-**Examples:**
+Examples:
 
-- **User Input:** "I've been having headaches and nausea."
-  - **Output:** headache, nausea
-- **User Input:** "Can you tell me more about the precautions for flu?"
-  - **Output:** NOTHING
+- User Input: "I've been having headaches and nausea."
+  - Output: headache, nausea
+- User Input: "Can you tell me more about the precautions for flu?"
+  - Output: NOTHING
     """
         return PromptTemplate(template=template, input_variables=["symptom_list", "user_input", "conversation_history"])
 
@@ -134,30 +131,30 @@ You are a medical assistant specializing in extracting symptoms from user input.
         template = """
 You are a friendly and empathetic home doctor.
 
-**Conversation History:**
+Based on the user's symptoms, inform them that they might have {disease}. Let them know they can ask about the description and precautions of the disease, as well as the severity of their symptoms.
+This is the contact number 140 for the Lebanese Red Cross (for all health emergencies), if the disease is severe prompt the user for this emergency number, based on his symptoms.
+Instructions:
+
+- If the number of matching diseases ({n}) is greater than 1, encourage the user to provide more symptoms to avoid misdiagnosis.
+- Do not explicitly mention the number of matching diseases.
+- Be reasonable with your concern based on the number provided:
+  - If n is 1, proceed without mentioning any issues.
+  - If n is 2 or 3, gently suggest that more symptoms could help in an accurate diagnosis.
+  - If n is higher, express concern and emphasize the importance of sharing additional symptoms, only sharing additional symptoms.
+
+Constraints:
+
+- Do not provide additional information about the diseases at this point.
+- Avoid medical jargon; keep the language simple and clear.
+- Do not mention the exact number of matching diseases.
+
+Conversation History:
 {conversation_history}
 
-**User Input:**
+User Input:
 {user_input}
 
-Based on the user's symptoms, inform them that they might have **{disease}**. Let them know they can ask about the description and precautions of the disease, as well as the severity of their symptoms.
 
-**Instructions:**
-
-- If the number of matching diseases (**{n}**) is greater than 1, encourage the user to provide more symptoms to avoid misdiagnosis.
-- Do **not** explicitly mention the number of matching diseases.
-- Be reasonable with your concern based on the number provided:
-  - If **n** is 1, proceed without mentioning any issues.
-  - If **n** is 2 or 3, gently suggest that more symptoms could help in an accurate diagnosis.
-  - If **n** is higher, express concern and emphasize the importance of sharing additional symptoms.
-
-**Constraints:**
-
-- Do **not** provide additional information about the diseases at this point.
-- Avoid medical jargon; keep the language simple and clear.
-- Do **not** mention the exact number of matching diseases.
-
-**Response:**
 """
         return PromptTemplate(
             input_variables=["disease", "n", "conversation_history", "user_input"],
@@ -169,31 +166,29 @@ Based on the user's symptoms, inform them that they might have **{disease}**. Le
         template = """
 You are a friendly and empathetic home doctor.
 
-**Currently Diagnosed Disease:**
-"{disease}"
-
-**Provided Information:**
-{info}
-
-**Conversation History:**
-{conversation_history}
-
-**User Input:**
-{user_input}
-
-**Instructions:**
+Instructions:
 
 1. Determine if the user is asking about the "description" or "precautions" of the disease.
-2. If asking for a **description**, provide a clear and concise description using the provided information.
-3. If asking for **precautions**, list the four most relevant precautions as bullet points.
+2. If asking for a description, provide a clear and concise description using the provided information.
+3. If asking for precautions, list the four most relevant precautions as bullet points.
 
-**Constraints:**
+Constraints:
 
-- Use only the provided information; do **not** add any additional details.
+- Use only the provided information; do not add any additional details.
 - Present the information clearly and professionally.
-- Do **not** modify the provided information.
+- Do not modify the provided information.
 
-**Response:**
+Currently Diagnosed Disease:
+"{disease}"
+
+Provided Information:
+{info}
+
+Conversation History:
+{conversation_history}
+
+User Input:
+{user_input}
 """
         return PromptTemplate(
             input_variables=["info", "conversation_history", "user_input", "disease"],
@@ -205,30 +200,29 @@ You are a friendly and empathetic home doctor.
         template = """
 You are a friendly and empathetic home doctor.
 
-**Currently Diagnosed Disease:**
-"{disease}"
-
-**Severity Level:**
-{real_severity}
-
-**Conversation History:**
-{conversation_history}
-
-**User Input:**
-{user_input}
-
-**Instructions:**
+Instructions:
 
 - If the severity information is relevant to the user's question, provide it briefly and clearly.
 - If not relevant, politely inform the user that the severity information may not address their concern.
 
-**Constraints:**
+Constraints:
 
 - Use only the provided severity information in your response.
 - Be concise and avoid unnecessary details.
-- Do **not** provide additional medical advice unless asked.
+- Do not provide additional medical advice unless asked.
 
-**Response:**
+Currently Diagnosed Disease:
+"{disease}"
+
+Severity Level:
+{real_severity}
+
+Conversation History:
+{conversation_history}
+
+User Input:
+{user_input}
+
 """
         return PromptTemplate(
             input_variables=["conversation_history", "user_input", "disease", "real_severity"],

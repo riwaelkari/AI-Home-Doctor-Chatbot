@@ -7,6 +7,10 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <!-- Language Toggle Button (Top Right Corner) -->
+    <button id="languageToggle" aria-label="Toggle Language">
+        <span id="languageLabel">En</span>
+    </button>
 
     <!-- Sidebar Toggle Button -->
     <button class="sidebar-toggle" id="sidebarToggle" aria-label="Open Sidebar">
@@ -40,6 +44,17 @@
         <button id="removeImageButton" aria-label="Remove Image">✖️</button>
     </div>
 
+    <!-- Audio Recording Container -->
+    <div id="audioRecordingContainer" class="audio-recording-container" style="display: none;">
+        <canvas id="waveformCanvas"></canvas>
+        <div class="recording-buttons">
+            <button id="startRecordingButton" aria-label="Start Recording">Start</button>
+            <button id="stopRecordingButton" aria-label="Stop Recording" disabled>Stop</button>
+            <button id="sendAudioButton" aria-label="Send Audio" disabled>Send</button>
+            <button id="cancelAudioButton" aria-label="Cancel">Cancel</button>
+        </div>
+    </div>
+
     <!-- Fixed Input Container -->
     <div class="fixed-input-container">
         <input type="text" id="userInput" placeholder="Type your message here..." autocomplete="off">
@@ -47,6 +62,11 @@
         <!-- Attach Button -->
         <button id="attachButton" aria-label="Attach File">
             <span class="attach-icon" role="img" aria-label="Attach">📎</span>
+        </button>
+
+        <!-- Microphone Button -->
+        <button id="recordButton" aria-label="Record Audio">
+            <span class="record-icon" role="img" aria-label="Record">🎤</span>
         </button>
 
         <!-- Hidden File Input -->
