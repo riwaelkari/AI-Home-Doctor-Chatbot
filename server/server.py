@@ -1,6 +1,3 @@
-# server/server.py
-#old server
-
 from flask import Flask, request, jsonify, render_template, send_from_directory
 import logging
 from flask_cors import CORS
@@ -52,10 +49,6 @@ try:
     agent.set_default_chain(agent.chains.get('base_model'))
 except Exception as e:
     logger.error(f"Error initializing chains: {e}", exc_info=True)
-    # Depending on your application's needs, you might want to exit or set a flag here
-    # For example:
-    # import sys
-    # sys.exit(1)
 
 # Initialize Conversation Memory
 memory = ConversationBufferMemory(memory_key="conversation_history", return_messages=True)
@@ -124,13 +117,14 @@ def chat():
             translated_message = agent.translate_text(message, 'English')
             logger.info(f"Translated user input to English: {translated_message}")
             user_input_en = translated_message
-
-        
         else:
             logger.info("English language selected")
             user_input_en = message
-        formatted_history = "\n".join([f"{'Patient' if isinstance(msg, HumanMessage) else msg.metadata.get('bot_name', 'Nurse')}: {msg.content}" 
-                for msg in conversation_history])
+
+        formatted_history = "\n".join([
+            f"{'Patient' if isinstance(msg, HumanMessage) else msg.metadata.get('bot_name', 'Nurse')}: {msg.content}" 
+            for msg in conversation_history
+        ])
 
         # Delegate to the agent
         response_dict = agent.handle_request(user_input_en, formatted_history, image_path, language)
@@ -145,15 +139,16 @@ def chat():
 
         ai_message = AIMessage(
             content=response_dict.get('response', ''),
-            metadata={'bot_name': response_dict.get('bot_name', 'Nurse')})
+            metadata={'bot_name': response_dict.get('bot_name', 'Nurse')}
+        )
 
         memory.chat_memory.add_message(ai_message)
 
-        if (language == 'Ar'):
+        if language == 'Ar':
             response = agent.translate_text(response_dict.get('response'), 'Arabic')
-
         else:
             response = response_dict.get('response')
+
         # Prepare the response payload
         response_payload = {
             'gpt_response': response,

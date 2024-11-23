@@ -66,16 +66,21 @@ let messages = [
 // Function to render messages
 function renderMessages() {
     chatDisplay.innerHTML = ''; // Clear current messages
-    messages.forEach(message => {
+    messages.forEach((message, index) => {
         if (message.role === "user") {
             // User Message
             const userContainer = document.createElement('div');
             userContainer.className = 'chat-container user-chat-container';
+            userContainer.id = `message-${index}`; // Assign an ID
 
             const chatContent = document.createElement('div');
             chatContent.className = 'chat-content user-bubble chat-bubble';
 
-            let messageContent = `<span class="sender-label">You:</span> <span>${sanitize(message.content)}</span>`;
+            let messageContent = "";
+
+            if (message.content && message.content.trim() !== "") {
+                messageContent += `<span class="sender-label">You:</span> <span class="message-text">${sanitize(message.content)}</span>`;
+            }
 
             if (message.imageData) {
                 messageContent += `<br><img src="${message.imageData}" alt="Attached Image" class="image-attachment">`;
@@ -93,12 +98,16 @@ function renderMessages() {
 
             userContainer.appendChild(chatContent);
             userContainer.appendChild(userIcon);
-            chatDisplay.appendChild(userContainer);  
+            chatDisplay.appendChild(userContainer);
         } else {
-            console.log("Rendering bot message with icon:", message.bot_icon);
             // Bot Message
             const botContainer = document.createElement('div');
             botContainer.className = 'chat-container bot-chat-container';
+            botContainer.id = `message-${index}`; // Assign an ID
+
+            if (message.isDiagnosing) {
+                botContainer.setAttribute('data-is-diagnosing', 'true');
+            }
 
             const botIcon = document.createElement('img');
             botIcon.src = message.bot_icon || 'images/nurse_icon.png';
@@ -109,8 +118,8 @@ function renderMessages() {
             chatContent.className = 'chat-content bot-bubble chat-bubble';
 
             const botName = message.bot_name || 'Doctor';
-// Inside renderMessages function
-            chatContent.innerHTML = `<span class="sender-label">${sanitize(botName)}:</span> <span>${sanitize(message.content).replace(/\n/g, '<br>')}</span>`;
+
+            chatContent.innerHTML = `<span class="sender-label">${sanitize(botName)}:</span> <span class="message-text">${sanitize(message.content).replace(/\n/g, '<br>')}</span>`;
 
             botContainer.appendChild(botIcon);
             botContainer.appendChild(chatContent);
@@ -121,6 +130,7 @@ function renderMessages() {
     // Automatically scroll to the bottom after rendering messages
     scrollToBottom();
 }
+
 function renderDiagnosingMessages() {
     chatDisplay.innerHTML = ''; // Clear current messages
     messages.forEach(message => {
@@ -321,16 +331,26 @@ function showDiagnosingAnimation() {
         role: "bot",
         content: "Diagnosing...",
         bot_name: currentBotName,
-        bot_icon: currentBotIcon
+        bot_icon: currentBotIcon,
+        isDiagnosing: true
     };
     messages.push(diagnosingMessage);
-    renderMessages();
+    const diagnosingMessageIndex = messages.length - 1; // Store the index
+    renderMessages(); // Render all messages once
 
     // Set up an interval to update the "Diagnosing..." message
     diagnosingInterval = setInterval(() => {
         dots = (dots + 1) % 4; // Cycle between 0, 1, 2, 3 dots
         diagnosingMessage.content = "Diagnosing" + ".".repeat(dots);
-        renderDiagnosingMessages();//hererender
+
+        // Update the content of the diagnosing message directly
+        const diagnosingMessageElement = document.getElementById(`message-${diagnosingMessageIndex}`);
+        if (diagnosingMessageElement) {
+            const chatContent = diagnosingMessageElement.querySelector('.chat-content .message-text');
+            if (chatContent) {
+                chatContent.innerHTML = sanitize(diagnosingMessage.content).replace(/\n/g, '<br>');
+            }
+        }
     }, 500); // Update every half second
 }
 
@@ -669,12 +689,16 @@ function sendAudio(audioBlob) {
     console.log('Sending audio to server...');
 
     // Append user message to chat display with audio player
+    // Append user message to chat display with audio player
     const audioURL = URL.createObjectURL(audioBlob);
-    messages.push({ role: "user", content: "Voice Message:", audioData: audioURL });
-    renderMessages();
+    messages.push({ role: "user", content: "", audioData: audioURL });
+    renderMessages(); // Render messages once
 
-    // Show "Diagnosing..." animation
+// Show "Diagnosing..." animation
     showDiagnosingAnimation();
+
+// ... rest of your existing code ...
+
 
     // Create FormData
     let formData = new FormData();

@@ -9,6 +9,7 @@ from langchain_community.vectorstores import FAISS
 import os
 from langchain_openai import OpenAIEmbeddings
 
+
 def load_data():
     # Adjust the paths based on your directory structure
     symptom_df = pd.read_csv('dataset/disease_symptoms_train.csv')
@@ -17,6 +18,7 @@ def load_data():
     severity_df = pd.read_csv('dataset/Symptom-severity.csv')
     testing_symptoms_df = pd.read_csv('dataset/disease_symptoms_test.csv')
     return symptom_df, description_df, precaution_df, severity_df, testing_symptoms_df
+
 
 def preprocess_data(symptom_df, testing_symptoms):
     label_encoder = LabelEncoder()

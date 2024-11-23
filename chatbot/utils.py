@@ -91,9 +91,6 @@ Refined Query:"""
         return ""
     else:
         return output
-import openai
-
-import openai
 
 def model_selector(query):
     response = openai.chat.completions.create(

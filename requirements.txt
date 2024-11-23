@@ -25,3 +25,4 @@ guardrails-ai
 torch
 torchvision
 seaborn
+joblib
