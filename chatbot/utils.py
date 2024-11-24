@@ -210,7 +210,7 @@ You are a helpful assistant that refines user queries based on the conversation 
 
 Instructions:
 
-- If the user's query is explicitely requesting descriptions of any model(s) from the provided list, generate questions in the format:
+- If the user's query is ONLY explicitely requesting descriptions of any model(s) from the provided list, generate questions in the format, otherwise generate NOTHING:
 
   "What is the description of [model name]?"
 
@@ -219,7 +219,6 @@ Instructions:
 NOTE:
 - If the user's input does NOT request descriptions, respond with: NOTHING
 
-- Do not generate any additional text or explanations.
 
 List of Models:
 {list_of_models}
@@ -230,8 +229,7 @@ List of Models:
                 "content": f"""
 User Query:
 {query}
-
-Refined Query:"""
+"""
             }
         ],
         temperature=0,  # Set temperature to 0 for deterministic output

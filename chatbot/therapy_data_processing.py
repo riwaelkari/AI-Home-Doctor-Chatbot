@@ -1,50 +1,48 @@
 # scripts/preprocess.py
 
 import pandas as pd
-import re
 import os
+from sklearn.model_selection import train_test_split
 
 def clean_text(text):
     """
-    Clean the input text by removing unwanted characters and normalizing whitespace.
+    Simplify text cleaning by converting to lowercase and stripping whitespace.
     """
-    text = text.lower()
-    text = re.sub(r'[^a-zA-Z0-9\s.,!?]', '', text)
-    text = re.sub(r'\s+', ' ', text).strip()
-    return text
+    return str(text).lower().strip()
 
-def load_and_preprocess_emotion_data():
+def load_and_preprocess_data():
     """
     Load and preprocess the emotion-emotion_69k.csv dataset.
     """
     # Define the path to the dataset
-    data_path = os.path.join('data', 'emotion_emotion_69k.csv')
+    data_path = os.path.join('dataset', 'emotion-emotion_69k.csv')
 
     # Load the dataset
     df = pd.read_csv(data_path)
 
     # Drop NaN values
-    df.dropna(inplace=True)
-
-    # Check column names
-    print(f"Columns in the dataset: {df.columns.tolist()}")
-
-    # Assuming the dataset has columns 'content' and 'sentiment'
-    text_column = 'content'
-    emotion_column = 'sentiment'
+    df.dropna(subset=['text', 'emotion'], inplace=True)
 
     # Clean text data
-    df['clean_text'] = df[text_column].apply(clean_text)
+    df['clean_text'] = df['text'].apply(clean_text)
 
     # Encode emotions to numerical labels
-    emotion_labels = df[emotion_column].unique()
+    emotion_labels = df['emotion'].unique()
     emotion_to_id = {emotion: idx for idx, emotion in enumerate(emotion_labels)}
-    df['label'] = df[emotion_column].map(emotion_to_id)
+    df['label'] = df['emotion'].map(emotion_to_id)
 
-    print(f"Loaded and preprocessed {len(df)} samples from emotion_emotion_69k.csv")
-    return df[['clean_text', 'label']], emotion_to_id
+    # Split into train and test sets
+    train_df, test_df = train_test_split(df, test_size=0.2, random_state=42, stratify=df['label'])
+
+    # Save processed data
+    train_df.to_csv(os.path.join('dataset', 'train.csv'), index=False)
+    test_df.to_csv(os.path.join('dataset', 'test.csv'), index=False)
+
+    # Save emotion labels mapping
+    label_mapping = pd.DataFrame(list(emotion_to_id.items()), columns=['emotion', 'label'])
+    label_mapping.to_csv(os.path.join('dataset', 'label_mapping.csv'), index=False)
+
+    print("Data preprocessing completed and saved to the 'dataset/' directory.")
 
 if __name__ == '__main__':
-    # For testing purposes
-    df, emotion_to_id = load_and_preprocess_emotion_data()
-    print(df.head())
+    load_and_preprocess_data()

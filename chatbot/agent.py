@@ -116,7 +116,7 @@ class Agent:
         Returns:
             dict: The response from the selected chain.
         """
-
+        logger.info(f"user input:" + user_input)
         chain = self.determine_chain(user_input)
         if not chain:
             logger.error("No chain available to handle the request.")

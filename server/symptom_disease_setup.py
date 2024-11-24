@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from actual_models.symptom_disease_model import SymptomDiseaseModel
 from chatbot.chains.symptom_disease_chains import SymptomDiseaseChain
 from langchain_openai import ChatOpenAI
-from chatbot.data_processing import (
+from actual_models.symptom_data_processing import (
     load_data,
     preprocess_data,
     create_documents_from_df,

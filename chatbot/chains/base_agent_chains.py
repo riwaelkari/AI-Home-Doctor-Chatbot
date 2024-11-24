@@ -3,7 +3,9 @@
 from langchain.prompts import PromptTemplate
 from .base_chains import BaseChain
 from ..utils import query_refiner_models, model_selector
+import logging
 
+logger = logging.getLogger(__name__)
 
 class BaseModelChain(BaseChain):
     def __init__(self, llm):
@@ -16,7 +18,6 @@ class BaseModelChain(BaseChain):
         self.llm = llm
         self.get_main_prompt = self.main_prompt()
         self.get_describe_prompt = self.describe_prompt()
-
     def main_prompt(self):
         template = """
     Introduction

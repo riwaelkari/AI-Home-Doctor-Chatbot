@@ -2,7 +2,7 @@
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from ..utils import query_refiner, query_refiner_severity
-from ..data_processing import get_similar_docs,get_diseases_by_symptoms,calc_severity_of_disease
+from actual_models.symptom_data_processing import get_similar_docs,get_diseases_by_symptoms,calc_severity_of_disease
 import numpy as np
 import logging
 from .base_chains import BaseChain
@@ -57,6 +57,7 @@ You are a friendly and empathetic symptom disease doctor at home that encourages
 - You can also give the description and precautions of the disease and the severity of the symptoms
 - Do not mention any information about the disease, even descriptions and precautions and severity, but tell the Patient they can request them
 
+Do not use the phrase "Symptom Disease Doctor:"
 If the User talks in arabic answer in english and tell him to switch to the Arabic feature on thew button on the top right.
 
 Conversation History:

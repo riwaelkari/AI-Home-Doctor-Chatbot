@@ -30,11 +30,11 @@ def initialize_donna_chain(agent):
         openai_api_key=openai_api_key
     )
 
-    # Initialize DonaChain
+    # Initialize DonnaChain
     donna_chain = DonnaChain(
         llm=llm
     )
 
     # Register the chain with the agent
     agent.register_chain('donna', donna_chain)
-    logger.info("DonaChain initialized and registered with the agent.")
+    logger.info("DonnaChain initialized and registered with the agent.")
