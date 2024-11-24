@@ -8,6 +8,7 @@ from PIL import Image
 import io
 from actual_models.skin_disease_model import process_image
 
+from ..utils import query_refiner_models, guard_base
 logger = logging.getLogger(__name__)
 
 class SkinDiseaseChain(BaseChain):
@@ -39,7 +40,7 @@ class SkinDiseaseChain(BaseChain):
         template = """
 You are a friendly medical assistant specialized in diagnosing skin diseases based on images, encourage the user to give you and image of the problem in the skin.
 
-Do not use the phrase "Skin Disease Doctor:"
+Do not use the phrase "Skin Disease Doctor: or Nurse:, be normal"
 
 f the User talks in arabic answer in english and tell him to switch to the Arabic feature on thew button on the top right.
 
@@ -106,48 +107,52 @@ Conversation history: {conversation_history}
         Returns:
             dict: A dictionary containing the chatbot's response and any additional data.
         """
-        predicted_disease = None
-        response = ""
+        guard_response = guard_base(user_input)
+        if (guard_response == 'allowed'):
+            predicted_disease = None
+            response = ""
 
-        if image_path:
-            try:
-                # Process the image and predict the disease
-                predicted_disease = self.disease_model.predict(
-                    image_path,
-                    device=device,
-                    class_to_index=self.class_to_idx
-                )
-                logger.info(f"Predicted Disease: {predicted_disease}")
+            if image_path:
+                try:
+                    # Process the image and predict the disease
+                    predicted_disease = self.disease_model.predict(
+                        image_path,
+                        device=device,
+                        class_to_index=self.class_to_idx
+                    )
+                    logger.info(f"Predicted Disease: {predicted_disease}")
 
-                # Set the flag indicating that an image has been provided and diagnosed
-                self.image_provided = True
+                    # Set the flag indicating that an image has been provided and diagnosed
+                    self.image_provided = True
 
-                # Generate response using the disease-specific prompt
-                disease_prompt = self.get_disease.format(
+                    # Generate response using the disease-specific prompt
+                    disease_prompt = self.get_disease.format(
+                        user_input=user_input,
+                        conversation_history=conversation_history,
+                        predicted_disease=predicted_disease
+                    )
+                    response = self.llm.invoke(disease_prompt)
+                except Exception as e:
+                    logger.error(f"Error processing image: {e}")
+                    response = "I'm sorry, but I couldn't process the image you provided. Could you please try uploading it again?"
+            else:
+                # No image provided; prompt the user to upload an image
+                main_prompt = self.get_main_prompt.format(
                     user_input=user_input,
                     conversation_history=conversation_history,
-                    predicted_disease=predicted_disease
+                    image_uploaded=self.image_provided
                 )
-                response = self.llm.invoke(disease_prompt)
-            except Exception as e:
-                logger.error(f"Error processing image: {e}")
-                response = "I'm sorry, but I couldn't process the image you provided. Could you please try uploading it again?"
-        else:
-            # No image provided; prompt the user to upload an image
-            main_prompt = self.get_main_prompt.format(
-                user_input=user_input,
-                conversation_history=conversation_history,
-                image_uploaded=self.image_provided
-            )
-            response = self.llm.invoke(main_prompt)
+                response = self.llm.invoke(main_prompt)
 
-        # Handle LLM response object
-        if hasattr(response, 'content'):
-            final_response = response.content
-        else:
-            final_response = response
+            # Handle LLM response object
+            if hasattr(response, 'content'):
+                final_response = response.content
+            else:
+                final_response = response
 
-        return {
-            'response': final_response,
-            'predicted_disease': predicted_disease if predicted_disease else ""
-        }
+            return {
+                'response': final_response,
+                'predicted_disease': predicted_disease if predicted_disease else ""
+            }
+        else:
+            return {"response": guard_response}

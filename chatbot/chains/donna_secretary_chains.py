@@ -12,7 +12,7 @@ import json
 from dateutil.parser import parse as parse_date
 import os
 import uuid
-
+from ..utils import query_refiner_models, guard_base
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -82,105 +82,109 @@ User input:
         Returns:
             dict: A dictionary containing the chatbot's response and any additional data.
         """
-        # Generate response to the user
-        prompt = self.get_prompt.format(
-            user_input=user_input,
-            conversation_history=conversation_history
-        )
-        response = self.llm.invoke(prompt)
+        guard_response = guard_base(user_input)
+        if (guard_response == 'allowed'):
+            # Generate response to the user
+            prompt = self.get_prompt.format(
+                user_input=user_input,
+                conversation_history=conversation_history
+            )
+            response = self.llm.invoke(prompt)
 
-        # Handle LLM response object
-        final_response = response.content if hasattr(response, 'content') else response
+            # Handle LLM response object
+            final_response = response.content if hasattr(response, 'content') else response
 
-        # Enhanced Extraction Prompt to Enforce JSON within Code Blocks
-        extraction_prompt = f"""
-Please extract the following information from the user's input and conversation history:
-- Medication name
-- Dosage
-- Timing (including time of day and frequency)
-- User's email address
+            # Enhanced Extraction Prompt to Enforce JSON within Code Blocks
+            extraction_prompt = f"""
+    Please extract the following information from the user's input and conversation history:
+    - Medication name
+    - Dosage
+    - Timing (including time of day and frequency)
+    - User's email address
 
-Provide the information in strict JSON format with the keys: medication, dosage, timing, email.
+    Provide the information in strict JSON format with the keys: medication, dosage, timing, email.
 
-Enclose the JSON in triple backticks and specify 'json' for syntax highlighting.
+    Enclose the JSON in triple backticks and specify 'json' for syntax highlighting.
 
-Example:
+    Example:
 
-```json
-{{
-    "medication": "Aspirin",
-    "dosage": "1 pill",
-    "timing": "2024-11-25 10:50 PM",
-    "email": "user@example.com"
-}}
-Ensure that the JSON is the only content in your response. Do not include any additional text.
+    ```json
+    {{
+        "medication": "Aspirin",
+        "dosage": "1 pill",
+        "timing": "2024-11-25 10:50 PM",
+        "email": "user@example.com"
+    }}
+    Ensure that the JSON is the only content in your response. Do not include any additional text.
 
 
 
-Conversation history:
-{conversation_history}
+    Conversation history:
+    {conversation_history}
 
-User input:
-{user_input}
-"""
-        extraction_response = self.llm.invoke(extraction_prompt)
+    User input:
+    {user_input}
+    """
+            extraction_response = self.llm.invoke(extraction_prompt)
 
-        # Enhanced JSON Parsing to Handle Code Blocks and Additional Text
-        try:
-            raw_content = extraction_response.content.strip()
+            # Enhanced JSON Parsing to Handle Code Blocks and Additional Text
+            try:
+                raw_content = extraction_response.content.strip()
 
-            # Attempt to extract JSON from code blocks
-            json_match = re.search(r'```json\s*(\{.*?\})\s*```', raw_content, re.DOTALL)
-            if json_match:
-                json_content = json_match.group(1)
-                logger.debug("Extracted JSON from code block.")
-            else:
-                # Assume the entire content is JSON
-                json_content = raw_content
-                logger.debug("Assuming entire content is JSON.")
+                # Attempt to extract JSON from code blocks
+                json_match = re.search(r'```json\s*(\{.*?\})\s*```', raw_content, re.DOTALL)
+                if json_match:
+                    json_content = json_match.group(1)
+                    logger.debug("Extracted JSON from code block.")
+                else:
+                    # Assume the entire content is JSON
+                    json_content = raw_content
+                    logger.debug("Assuming entire content is JSON.")
 
-            prescription_data = json.loads(json_content)
+                prescription_data = json.loads(json_content)
 
-            # Validate that all required keys are present
-            required_keys = {"medication", "dosage", "timing", "email"}
-            if not required_keys.issubset(prescription_data.keys()):
-                missing = required_keys - prescription_data.keys()
-                raise ValueError(f"Missing keys in JSON: {missing}")
+                # Validate that all required keys are present
+                required_keys = {"medication", "dosage", "timing", "email"}
+                if not required_keys.issubset(prescription_data.keys()):
+                    missing = required_keys - prescription_data.keys()
+                    raise ValueError(f"Missing keys in JSON: {missing}")
 
-            # Parse timing to get the next reminder time
-            next_reminder = parse_date(prescription_data['timing'])
-            prescription_data['next_reminder'] = next_reminder
+                # Parse timing to get the next reminder time
+                next_reminder = parse_date(prescription_data['timing'])
+                prescription_data['next_reminder'] = next_reminder
 
-            # Assign a unique ID
-            prescription_data['id'] = str(uuid.uuid4())
+                # Assign a unique ID
+                prescription_data['id'] = str(uuid.uuid4())
 
-            # Check for duplicate prescriptions
-            if not any(
-                p['email'] == prescription_data['email'] and
-                p['medication'] == prescription_data['medication'] and
-                p['dosage'] == prescription_data['dosage'] and
-                p['timing'] == prescription_data['timing']
-                for p in self.prescriptions
-            ):
-                # Add to prescriptions list
-                self.prescriptions.append(prescription_data)
-                logger.info(f"Added prescription: {prescription_data}")
-            else:
-                logger.warning(f"Duplicate prescription detected: {prescription_data}")
+                # Check for duplicate prescriptions
+                if not any(
+                    p['email'] == prescription_data['email'] and
+                    p['medication'] == prescription_data['medication'] and
+                    p['dosage'] == prescription_data['dosage'] and
+                    p['timing'] == prescription_data['timing']
+                    for p in self.prescriptions
+                ):
+                    # Add to prescriptions list
+                    self.prescriptions.append(prescription_data)
+                    logger.info(f"Added prescription: {prescription_data}")
+                else:
+                    logger.warning(f"Duplicate prescription detected: {prescription_data}")
 
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON decoding error: {e}")
-            logger.debug(f"Extraction response content: {extraction_response.content}")
-        except Exception as e:
-            logger.error(f"Failed to extract prescription data: {e}")
-            if 'extraction_response' in locals():
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON decoding error: {e}")
                 logger.debug(f"Extraction response content: {extraction_response.content}")
-            else:
-                logger.debug("extraction_response is not defined.")
+            except Exception as e:
+                logger.error(f"Failed to extract prescription data: {e}")
+                if 'extraction_response' in locals():
+                    logger.debug(f"Extraction response content: {extraction_response.content}")
+                else:
+                    logger.debug("extraction_response is not defined.")
 
-        return {
-            'response': final_response
-        }
+            return {
+                'response': final_response
+            }
+        else:
+            return {"response": guard_response}
 
     def send_reminder_emails(self):
         """

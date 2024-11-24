@@ -2,7 +2,7 @@
 
 from langchain.prompts import PromptTemplate
 from .base_chains import BaseChain
-from ..utils import query_refiner_models, model_selector
+from ..utils import query_refiner_models, guard_base
 import logging
 
 logger = logging.getLogger(__name__)
@@ -78,22 +78,26 @@ class BaseModelChain(BaseChain):
         Returns:
             dict: The response from the chain.
         """
-        print(conversation_history)
-        listofmodels = "Symptom Disease Doctor, Skin Disease Doctor, Donna"
-        query = query_refiner_models(user_input, listofmodels)
-        print(query)
-        if image_path:
-            response = "This Doctor does not support images, please either choose a doctor that does, or refrain from attaching images."
-            return {"response": response}
-        elif "description" in query.lower():
-            response = self.llm.invoke(
-                self.get_describe_prompt.format(user_input=query)
-            )
-        else:
-            response = self.llm.invoke(
-                self.get_main_prompt.format(
-                    user_input=user_input,
-                    conversation_history=conversation_history
+        guard_response = guard_base(user_input)
+        if (guard_response == 'allowed'):
+            print(conversation_history)
+            listofmodels = "Symptom Disease Doctor, Skin Disease Doctor, Donna"
+            query = query_refiner_models(user_input, listofmodels)
+            print(query)
+            if image_path:
+                response = "This Doctor does not support images, please either choose a doctor that does, or refrain from attaching images."
+                return {"response": response}
+            elif "description" in query.lower():
+                response = self.llm.invoke(
+                    self.get_describe_prompt.format(user_input=query)
                 )
-            )
-        return {"response": response.content}
+            else:
+                response = self.llm.invoke(
+                    self.get_main_prompt.format(
+                        user_input=user_input,
+                        conversation_history=conversation_history
+                    )
+                )
+            return {"response": response.content}
+        else:
+            return {"response": guard_response}

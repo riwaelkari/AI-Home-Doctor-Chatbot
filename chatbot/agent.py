@@ -69,6 +69,7 @@ class Agent:
             BaseChain: The selected chain based on the input.
         """
         determine = model_selector(user_input)
+        print(determine)
         # Check if the user is selecting a chain
         if determine == 1:
             self.current_chain = self.chains.get('symptom_disease', self.default_chain)

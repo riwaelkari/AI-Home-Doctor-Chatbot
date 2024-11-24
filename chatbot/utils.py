@@ -295,3 +295,34 @@ def string_to_list(s):
     items = [item.strip(" '\"") for item in items]
 
     return items
+def guard_base(query):
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",  # Ensure this is the desired model
+        messages=[
+            {
+                "role": "system",
+                "content": f""" 
+                You are to assess whether the user's question is on the allowed topic: Normal Conversation initiators,Medical Questions or Deligating to doctors. 
+                If it is, respond with 'allowed'; respond **only** with the following message exactly:
+  "I am a nurse and can only help delegate to available doctors. Would you like to know your options?"
+ 
+                """
+            },
+            {
+                "role": "user",
+                "content": f"""
+User Query:
+{query}
+
+Refined Query:"""
+            }
+        ],
+        temperature=0,  # Set temperature to 0 for deterministic output
+        max_tokens=50,
+        top_p=1,
+        frequency_penalty=0,
+        presence_penalty=0
+    )
+    output = response.choices[0].message.content.strip()
+
+    return output

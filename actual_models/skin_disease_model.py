@@ -443,3 +443,4 @@ def test_model(model, testloader, criterion, device):
     plt.ylabel('Actual')
     plt.title('Confusion Matrix')
     plt.show()
+args = get_input_args()

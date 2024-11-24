@@ -6,6 +6,7 @@ from actual_models.symptom_data_processing import get_similar_docs,get_diseases_
 import numpy as np
 import logging
 from .base_chains import BaseChain
+from ..utils import query_refiner_models, guard_base
 # Configure Logging
 logger = logging.getLogger(__name__)
 class SymptomDiseaseChain(BaseChain):
@@ -312,112 +313,117 @@ User Input:
             str: The chatbot's response.
             str or None: The predicted disease if available.
         """
-        # Extract symptoms from user input
-        symptoms = self.extract_symptoms(user_input,conv_history)
-        logger.info(f"Extracted symptoms: {symptoms}")
-        refined_query = query_refiner(user_input,self.current_disease)
-        logger.info(f"Refined query: {refined_query}")
-        if image_path:
-            response = "This Model does not support images, please either choose a model that does, or refrain from attaching images."
-            return {"response": response,
+        guard_response = guard_base(user_input)
+                
+        if (guard_response == 'allowed'):
+            # Extract symptoms from user input
+            symptoms = self.extract_symptoms(user_input,conv_history)
+            logger.info(f"Extracted symptoms: {symptoms}")
+            refined_query = query_refiner(user_input,self.current_disease)
+            logger.info(f"Refined query: {refined_query}")
+            if image_path:
+                response = "This Model does not support images, please either choose a model that does, or refrain from attaching images."
+                return {"response": response,
+                    }
+            elif symptoms:
+                # Predict disease based on extracted symptoms
+                predicted_disease = self.predict_disease(symptoms)
+                logger.info(f"Predicted disease: {predicted_disease}")
+                    # Update conversation history with disease and symptoms
+                #n = matching_disease_fre(symptoms,....)
+                n=get_diseases_by_symptoms(symptoms)
+                logger.info(f"Number of matching diseases: {n}")
+                print(predicted_disease)
+                response_message = self.llm.invoke(self.disease_prompt.format(
+                    disease=predicted_disease,
+                    n=n,
+                    conversation_history=conv_history,
+                    user_input=user_input
+                ))
+
+                print(response_message)
+                logger.info(f"Diagnosis and GPT-Generated Response: {response_message}")
+                return {
+                    'response': response_message.content,
+                    'predicted_disease': predicted_disease
                 }
-        elif symptoms:
-            # Predict disease based on extracted symptoms
-            predicted_disease = self.predict_disease(symptoms)
-            logger.info(f"Predicted disease: {predicted_disease}")
-                # Update conversation history with disease and symptoms
-            #n = matching_disease_fre(symptoms,....)
-            n=get_diseases_by_symptoms(symptoms)
-            logger.info(f"Number of matching diseases: {n}")
-            print(predicted_disease)
-            response_message = self.llm.invoke(self.disease_prompt.format(
-                disease=predicted_disease,
-                n=n,
-                conversation_history=conv_history,
-                user_input=user_input
-            ))
-
-            print(response_message)
-            logger.info(f"Diagnosis and GPT-Generated Response: {response_message}")
-            return {
-                'response': response_message.content,
-                'predicted_disease': predicted_disease
-            }
-        elif any(keyword in refined_query for keyword in ["description", "precautions"]):
-            logger.info("User is requesting description or precautions.")
-            if "description" in refined_query.lower():
-                desired_section = "description"
-            elif "precautions" in refined_query.lower():
-                desired_section = "precaution"
-            similar_docs = get_similar_docs(refined_query, self.embeddings_model, self.faiss_index, self.split_docs, k=1,desired_type=desired_section)
-            if similar_docs:
-                info = similar_docs[0][0].page_content
-            else:
-                info = "No information available regarding your query."
-            logger.info(f"Retrieved info: {info}")
-            response_message = self.llm.invoke(self.get_info_prompt.format(
-                    info = info,
-                    conversation_history=conv_history,
-                    user_input=user_input,
-                    disease=self.current_disease  # Pass the current disease
-            ))
-            predicted_disease = None
-            return {
-                'response': response_message.content,
-                'predicted_disease': ""
-            }
-
-
-
-        elif "severity" in refined_query.lower():
-            logger.info("User is requesting severity information.")
-            # Use the updated query_refiner_severity function to generate severity-related questions
-            refined_severity_queries = query_refiner_severity(conv_history, user_input)
-            severity_responses = []
-            list_severity = []
-            info_number=0
-
-            for severity_query in refined_severity_queries:
-                # Use get_similar_docs to retrieve information about severity
-                similar_docs = get_similar_docs(severity_query, self.embeddings_model, self.faiss_index, self.split_docs, k=1, desired_type="severity")
+            elif any(keyword in refined_query for keyword in ["description", "precautions"]):
+                logger.info("User is requesting description or precautions.")
+                if "description" in refined_query.lower():
+                    desired_section = "description"
+                elif "precautions" in refined_query.lower():
+                    desired_section = "precaution"
+                similar_docs = get_similar_docs(refined_query, self.embeddings_model, self.faiss_index, self.split_docs, k=1,desired_type=desired_section)
                 if similar_docs:
-                    info_severity = similar_docs[0][0].page_content
-                    info_number=info_severity[-1]
-                    
+                    info = similar_docs[0][0].page_content
                 else:
-                    info_severity = "No information available regarding the severity of this symptom."
-                    info_number = 0
-                print(info_number)
-                severity_responses.append(f"Question: {severity_query} Answer: {info_severity}")
-                list_severity.append(int(info_number))
-                print(list_severity)
-            real_severity="" 
-            real_severity = calc_severity_of_disease(list_severity)
-            # Combine all severity responses into a single response message
-            response_message1 = "\n".join(severity_responses)
-            print(response_message1)
-            response_message = self.llm.invoke(self.get_severity_prompt.format(
-                    conversation_history=conv_history,
-                    user_input=user_input,
-                    disease=self.current_disease,
-                    real_severity=real_severity  # Pass the current disease
-            ))
-            predicted_disease = None
-            return {
-                'response': response_message.content,
-                'predicted_disease': ""
-            }
+                    info = "No information available regarding your query."
+                logger.info(f"Retrieved info: {info}")
+                response_message = self.llm.invoke(self.get_info_prompt.format(
+                        info = info,
+                        conversation_history=conv_history,
+                        user_input=user_input,
+                        disease=self.current_disease  # Pass the current disease
+                ))
+                predicted_disease = None
+                return {
+                    'response': response_message.content,
+                    'predicted_disease': ""
+                }
 
+
+
+            elif "severity" in refined_query.lower():
+                logger.info("User is requesting severity information.")
+                # Use the updated query_refiner_severity function to generate severity-related questions
+                refined_severity_queries = query_refiner_severity(conv_history, user_input)
+                severity_responses = []
+                list_severity = []
+                info_number=0
+
+                for severity_query in refined_severity_queries:
+                    # Use get_similar_docs to retrieve information about severity
+                    similar_docs = get_similar_docs(severity_query, self.embeddings_model, self.faiss_index, self.split_docs, k=1, desired_type="severity")
+                    if similar_docs:
+                        info_severity = similar_docs[0][0].page_content
+                        info_number=info_severity[-1]
+                        
+                    else:
+                        info_severity = "No information available regarding the severity of this symptom."
+                        info_number = 0
+                    print(info_number)
+                    severity_responses.append(f"Question: {severity_query} Answer: {info_severity}")
+                    list_severity.append(int(info_number))
+                    print(list_severity)
+                real_severity="" 
+                real_severity = calc_severity_of_disease(list_severity)
+                # Combine all severity responses into a single response message
+                response_message1 = "\n".join(severity_responses)
+                print(response_message1)
+                response_message = self.llm.invoke(self.get_severity_prompt.format(
+                        conversation_history=conv_history,
+                        user_input=user_input,
+                        disease=self.current_disease,
+                        real_severity=real_severity  # Pass the current disease
+                ))
+                predicted_disease = None
+                return {
+                    'response': response_message.content,
+                    'predicted_disease': ""
+                }
+
+            else:
+                logger.info("No symptoms or specific queries detected. Prompting for symptoms.")
+                # No symptoms or asking about info is detected, generate a prompt to ask for symptoms
+                response_message = self.llm.invoke(self.main_prompt.format(
+                    user_input=user_input,
+                    conversation_history = conv_history
+                )) 
+                logger.info(f"Diagnosis and GPT-Generated Response: {response_message}")
+                predicted_disease = None
+                return {
+                    'response': response_message.content,
+                }    
         else:
-            logger.info("No symptoms or specific queries detected. Prompting for symptoms.")
-            # No symptoms or asking about info is detected, generate a prompt to ask for symptoms
-            response_message = self.llm.invoke(self.main_prompt.format(
-                user_input=user_input,
-                conversation_history = conv_history
-            )) 
-            logger.info(f"Diagnosis and GPT-Generated Response: {response_message}")
-            predicted_disease = None
-            return {
-                'response': response_message.content,
-            }    
+            return {"response": guard_response}
 
