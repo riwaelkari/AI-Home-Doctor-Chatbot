@@ -92,43 +92,27 @@ Refined Query:"""
     else:
         return output
 
-def model_selector(query):
+def model_selector(conversation):
     response = openai.chat.completions.create(
         model="gpt-3.5-turbo",  # Change to "gpt-4" if preferred
         messages=[
             {
                 "role": "system",
                 "content": """
-You are an intelligent assistant designed to determine if the user wants to select one of the available models.
+Based on the conversation, determine if the user is trying to choose on of the following models/doctors/secretary:
+1. Model 1, Symptom disease doctor
+2. Model2, Skin disease doctor
+3. Model 3, Donna the secretary
 
-Instructions:
-
-- Model 1: If the user's query indicates they want to select, switch to, or use Model 1, and mentions terms like symptom disease model, first model, model 1, or simply 1, return 1.
-
-- Model 2: If the user's query indicates they want to select, switch to, or use Model 2, and mentions terms like skin disease model, image model, second model, model 2, or simply 2, return 2.
-
-- Model 3: If the user's query indicates they want to select, switch to, or use Model 3, and mentions terms like Dona, prescription model, reminder model, third model, model 3, or simply 3, return 3.
-
-- Non-Selection Queries: If the user's query does not indicate a desire to select or switch models (e.g., they are asking for a description or information about a model), return NOTHING.
-
-Additional Guidelines:
-
-- Do not provide explanations or any additional text other than the specified outputs.
-
-- Ensure the response is either 1, 2, 3, or NOTHING based on the query.
-
-List of Models:
-- Symptom Disease model - 1 - Model 1
-- Skin Disease model - 2 - Model 2
-- Dona (Prescription Reminder) - 3 - Model 3
+Return the ONLY number of the model (1,2, or 3) as output if the user wants to choose, otherwise return NOTHING.
 """
             },
             {
                 "role": "user",
                 "content": f"""
-User Query:
-{query}
-Model Number:"""
+Conversation:
+{conversation}
+"""
             }
         ],
         temperature=0,  # For deterministic responses
@@ -300,13 +284,142 @@ def guard_base(query):
         model="gpt-4o-mini",  # Ensure this is the desired model
         messages=[
             {
-                "role": "system",
+                "role": "system", 
                 "content": f""" 
-                You are to assess whether the user's question is on the allowed topic: Normal Conversation initiators,Medical Questions or Deligating to doctors. 
-                If it is, respond with 'allowed'; respond **only** with the following message exactly:
-  "I am a nurse and can only help delegate to available doctors. Would you like to know your options?"
- 
+            You are a helpful assistant responsible for determining if the user's query falls under allowed topics: normal conversation starters, or requests to delegate to doctors, or explanation or inqueries of what each doctor or secretary does who is donna, meaning, if the user talks about anything related to donna the secretary or the skin or symptom disease doctor, it asks normally but if it asks anything about something very far from its functionality, then it doesnt work. 
+            if he asks you what you do also answer normally. 
+              just if the topic is way off topic meaning then dont asnwer
+             Normal conversation starters.
+- Requests to delegate to doctors.
+- Explanations or inquiries about what each doctor or secretary does or in other words what your resources do.
+- Questions or discussions related to Donna, the secretary.
+- Questions or discussions related to the skin or symptom disease doctor.
+- Questions about what you (the assistant) do.
+-If anything of the above have synonyms also answer normally.
+
+In other words, if the user talks about anything related to Donna, the secretary, or the skin or symptom disease doctor, you should respond normally.
+
+If the user asks what you do, you should also answer normally.
+
+Instructions:
+
+- If the query is allowed, respond with `'allowed'` only.
+- If the query is not allowed, politely inform the user that you can only assist with medical-related inquiries, help delegate to available doctors, or explain what each one does.
+
+            
                 """
+            },
+            {
+                "role": "user",
+                "content": f"""
+User Query:
+{query}
+
+Refined Query:"""
+            }
+        ],
+        temperature=0,  # Set temperature to 0 for deterministic output
+        max_tokens=50,
+        top_p=1,
+        frequency_penalty=0,
+        presence_penalty=0
+    )
+    output = response.choices[0].message.content.strip()
+
+    return output
+def guard_base_symptom(query):
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",  # Ensure this is the desired model
+        messages=[
+            {
+                "role": "system", 
+                "content": f""" 
+
+ You are a helpful assistant responsible for determining if the user's query falls under allowed topics:
+   - Normal conversation starters.
+   -Normal doctor patient interactions
+   -Normal what the person is feeling in terms of wellness physical and anything that has symptoms 
+- Medical questions related to symptoms or diseases, including:
+  - Their descriptions
+  - Precautions and prevention
+  - Severity and progression
+  - Causes and risk factors
+  - Prognosis and outcomes
+-
+                """
+            },
+            {
+                "role": "user",
+                "content": f"""
+User Query:
+{query}
+
+Refined Query:"""
+            }
+        ],
+        temperature=0,  # Set temperature to 0 for deterministic output
+        max_tokens=50,
+        top_p=1,
+        frequency_penalty=0,
+        presence_penalty=0
+    )
+    output = response.choices[0].message.content.strip()
+
+    return output
+def guard_base_skin(query):
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",  # Ensure this is the desired model
+        messages=[
+            {
+                "role": "system", 
+                "content": f""" 
+            You are a helpful assistant responsible for determining if the user's query falls under allowed topics:
+   - Normal conversation starters.
+   -Normal doctor patient interactions
+   -Attach or picture  of skin  disease related inqueries
+   -Normal what the person is feeling in terms of wellness physical and anything that has skin stuff 
+- Medical questions related to skin diseases and infections, including:
+  - A picture of it 
+  - what it is
+-
+ """
+            },
+            {
+                "role": "user",
+                "content": f"""
+User Query:
+{query}
+
+Refined Query:"""
+            }
+        ],
+        temperature=0,  # Set temperature to 0 for deterministic output
+        max_tokens=50,
+        top_p=1,
+        frequency_penalty=0,
+        presence_penalty=0
+    )
+    output = response.choices[0].message.content.strip()
+
+    return output
+def guard_base_donna(query):
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",  # Ensure this is the desired model
+        messages=[
+            {
+                "role": "system", 
+                "content": f""" 
+            You are a helpful assistant responsible for determining if the user's query falls under allowed topics.
+
+Allowed Topics:
+- Normal conversation starters.
+- Requests to remind or schedule taking medications, can also mention the remind via email  or anything to do with timing reminders .
+  - This includes reminding the user about specific medications, scheduling reminders, or answering general questions related to medications (e.g., dosage, timing).
+  
+Instructions:
+- If the query is allowed, respond with `'allowed'` only.
+- If the query is not allowed, politely inform the user that you can only assist with reminding or scheduling reminders to take medication.
+ """
             },
             {
                 "role": "user",

@@ -1,28 +1,31 @@
+# train.py
+
+import os
+import argparse
 import torch
 from torch import nn, optim
 from torchvision import datasets, transforms, models
 from PIL import Image
 from collections import OrderedDict
 import numpy as np
-import argparse
 import json
-import os
-from tqdm import tqdm
+from torch.utils.data import random_split, DataLoader
 from sklearn.utils.class_weight import compute_class_weight
-from torch.utils.data import random_split
 from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
-
+from tqdm import tqdm
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning, module="torch")
 # ===========================
-# Model Definition
+# Section 1: Model Definition
 # ===========================
 
 class SkinDiseaseClassifier(nn.Module):
     def __init__(self, arch='resnet18', output_classes=23):
         super(SkinDiseaseClassifier, self).__init__()
 
-        # Load a pre-trained model with updated weights parameter
+        # Load a pre-trained model
         if arch == 'resnet18':
             self.model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
             input_features = self.model.fc.in_features
@@ -38,17 +41,17 @@ class SkinDiseaseClassifier(nn.Module):
             if 'layer3' in name or 'layer4' in name or 'fc' in name:
                 param.requires_grad = True
 
-        # Define an expanded classifier with two hidden layers, BatchNorm, and Dropout
+        # Define an expanded classifier with two hidden layers, LayerNorm, and Dropout
         self.model.fc = nn.Sequential(OrderedDict([
             ('fc1', nn.Linear(input_features, 128)),
-            ('bn1', nn.BatchNorm1d(128)),
+            ('ln1', nn.LayerNorm(128)),  # Replaced BatchNorm1d with LayerNorm
             ('relu1', nn.ReLU()),
-            ('dropout1', nn.Dropout(0.5)),  # Adjusted dropout rate
+            ('dropout1', nn.Dropout(0.5)),
 
             ('fc2', nn.Linear(128, 64)),
-            ('bn2', nn.BatchNorm1d(64)),
+            ('ln2', nn.LayerNorm(64)),  # Replaced BatchNorm1d with LayerNorm
             ('relu2', nn.ReLU()),
-            ('dropout2', nn.Dropout(0.5)),  # Adjusted dropout rate
+            ('dropout2', nn.Dropout(0.5)),
 
             ('fc3', nn.Linear(64, output_classes))
         ]))
@@ -61,82 +64,116 @@ class SkinDiseaseClassifier(nn.Module):
         return self.model(x)
 
 # ===========================
-# Prediction Function
+# Section 2: Utility Functions
 # ===========================
 
-    def predict(self, image_path,class_to_index ,top_k=3, device='cpu'):
-        self.model.to(device)
-        self.model.eval()
+def process_image(image_path, device='cpu'):
+    """
+    Scales, crops, and normalizes a PIL image for a PyTorch model,
+    returns a tensor.
+    """
+    img = Image.open(image_path).convert("RGB")
+    inference_transforms = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                             std=[0.229, 0.224, 0.225])
+    ])
+    img_tensor = inference_transforms(img)
+    img_tensor = img_tensor.unsqueeze(dim=0).to(device)
+    return img_tensor
 
-        # Process image
-        tensor_image = process_image(image_path, device=device)
+def predict(model, image_path, top_k=3, device='cpu', cat_to_name=None):
+    """
+    Predict the class (or classes) of an image using a trained deep learning model.
+    """
+    model.to(device)
+    model.eval()
 
-        with torch.no_grad():
-            outputs = self.model(tensor_image)
-            probabilities = torch.softmax(outputs, dim=1)
+    # Process image
+    tensor_image = process_image(image_path, device=device)
 
-            top_probs, top_indices = probabilities.topk(top_k, dim=1)
+    with torch.no_grad():
+        outputs = model(tensor_image)
+        probabilities = torch.softmax(outputs, dim=1)
 
-        # Remove batch dimension and convert to numpy
-        top_probs = top_probs.detach().cpu().numpy()[0]
-        top_indices = top_indices.detach().cpu().numpy()[0]
+        top_probs, top_indices = probabilities.topk(top_k, dim=1)
 
-        # Convert indices to class labels
-        idx_to_class = {v: k for k, v in class_to_index.items()}
-        top_classes = [idx_to_class[idx] for idx in top_indices]
+    # Remove batch dimension and convert to numpy
+    top_probs = top_probs.detach().cpu().numpy()[0]
+    top_indices = top_indices.detach().cpu().numpy()[0]
 
-        # Create a formatted string of predictions
-        prediction_str = "Here are the top predictions based on the provided image:\n\n"
-        for rank, (cls, prob) in enumerate(zip(top_classes, top_probs), start=1):
-            prediction_str += f"{rank}. {cls}: {prob * 100:.2f}%\n"
+    # Convert indices to class labels
+    idx_to_class = {v: k for k, v in model.class_to_idx.items()}
+    top_classes = [idx_to_class[idx] for idx in top_indices]
 
-        return prediction_str
+    # Map to class names if provided
+    if cat_to_name:
+        top_class_names = [cat_to_name.get(cls, cls) for cls in top_classes]
+    else:
+        top_class_names = top_classes
+
+    # Create a formatted string of predictions
+    prediction_str = "Here are the top predictions based on the provided image:\n\n"
+    for rank, (cls, prob) in enumerate(zip(top_class_names, top_probs), start=1):
+        prediction_str += f"{rank}. {cls}: {prob * 100:.2f}%\n"
+    return prediction_str
+
+def load_checkpoint(filepath, device='cpu'):
+    """
+    Load a model checkpoint and rebuild the model.
+    """
+    checkpoint = torch.load(filepath, map_location=device)
+    arch = checkpoint['arch']
+    output_classes = checkpoint['output_classes']
+
+    # Initialize model
+    model = SkinDiseaseClassifier(
+        arch=arch,
+        output_classes=output_classes
+    )
+
+    model.load_state_dict(checkpoint['state_dict'])
+    model.class_to_idx = checkpoint['class_to_idx']
+    model.to(device)
+    class_to_idx = checkpoint['class_to_idx']
+    return model,class_to_idx
+
+def save_checkpoint(model, save_dir, class_to_idx, learning_rate, epochs):
+    """
+    Save the model checkpoint.
+    """
+    checkpoint = {
+        'arch': model.arch,
+        'output_classes': model.output_classes,
+        'state_dict': model.state_dict(),
+        'class_to_idx': class_to_idx,
+        'learning_rate': learning_rate,
+        'epochs': epochs
+    }
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    save_path = os.path.join(save_dir, 'checkpoint.pth')
+    torch.save(checkpoint, save_path)
+    print(f"Checkpoint saved to {save_path}")
 
 # ===========================
-# Argument Parsing
+# Section 3: Data Loading Function
 # ===========================
 
-def get_input_args():
-    parser = argparse.ArgumentParser(description="Train or predict using a neural network on a dataset.")
-
-    subparsers = parser.add_subparsers(dest='command', help='Sub-command help')
-
-    # Sub-parser for the 'train' command
-    train_parser = subparsers.add_parser('train', help='Train the neural network')
-    train_parser.add_argument('data_dir', type=str, help='Directory containing the training data (e.g., ./mydata)')
-    train_parser.add_argument('--save_dir', type=str, default='.', help='Directory for saving checkpoints')
-    train_parser.add_argument('--arch', type=str, default='resnet18', choices=['resnet18'], help='Model architecture to use for training')
-    train_parser.add_argument('--learning_rate', type=float, default=1e-4, help='Learning rate for the optimizer')  # Adjusted learning rate
-    train_parser.add_argument('--epochs', type=int, default=30, help='Number of epochs for training')
-    train_parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training')  # Reduced batch size
-    train_parser.add_argument('--gpu', action='store_true', help='Use GPU for training if available')
-
-    # Sub-parser for the 'predict' command
-    predict_parser = subparsers.add_parser('predict', help='Predict using the trained neural network')
-    predict_parser.add_argument('input', type=str, help='Path to the input image.')
-    predict_parser.add_argument('checkpoint', type=str, help='Path to the model checkpoint.')
-    predict_parser.add_argument('--top_k', type=int, default=3, help='Return top K most likely classes.')
-    predict_parser.add_argument('--category_names', type=str, default="./skin_disease_class_to_name.json", help='Path to JSON file mapping categories to real names.')
-    predict_parser.add_argument('--gpu', action='store_true', help='Use GPU for inference if available.')
-
-    return parser.parse_args()
-
-# ===========================
-# Data Loading Function
-# ===========================
-
-def load_data(data_dir, valid_size=0.15):
-    train_dir = os.path.join(data_dir, 'train')
-    test_dir = os.path.join(data_dir, 'test')
-
-    # Enhanced transforms with more aggressive data augmentation
+def load_data(data_dir, batch_size=16, valid_size=0.15, test_size=0.15):
+    """
+    Load data from data_dir, split into train, validation, and test datasets.
+    """
+    # Define transforms
     train_transforms = transforms.Compose([
         transforms.RandomResizedCrop(224),
         transforms.RandomHorizontalFlip(),
-        transforms.RandomVerticalFlip(),  # Added vertical flip
-        transforms.RandomRotation(45),     # Increased rotation range
-        transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.2),  # Enhanced color jitter
-        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),   # Added affine transformations
+        transforms.RandomVerticalFlip(),
+        transforms.RandomRotation(45),
+        transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.2),
+        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406],
                              [0.229, 0.224, 0.225])
@@ -150,35 +187,35 @@ def load_data(data_dir, valid_size=0.15):
                              [0.229, 0.224, 0.225])
     ])
 
-    # Load the full training dataset
-    full_train_data = datasets.ImageFolder(train_dir, transform=train_transforms)
-
-    # Calculate sizes for train and validation splits
-    total_train = len(full_train_data)
-    valid_length = int(valid_size * total_train)
-    train_length = total_train - valid_length
+    # Load the full dataset
+    full_dataset = datasets.ImageFolder(data_dir, transform=train_transforms)
 
     # Split the dataset
-    train_data, valid_data = random_split(full_train_data, [train_length, valid_length])
+    total_size = len(full_dataset)
+    test_len = int(test_size * total_size)
+    valid_len = int(valid_size * total_size)
+    train_len = total_size - test_len - valid_len
+    train_data, valid_data, test_data = random_split(full_dataset, [train_len, valid_len, test_len])
 
-    # Apply transforms to validation data
+    # Apply transforms to validation and test data
     valid_data.dataset.transform = valid_test_transforms
+    test_data.dataset.transform = valid_test_transforms
 
-    # Load test data
-    test_data = datasets.ImageFolder(test_dir, transform=valid_test_transforms)
+    # Define dataloaders with drop_last=True for the training set
+    trainloader = DataLoader(train_data, batch_size=batch_size, shuffle=True, drop_last=True)
+    validloader = DataLoader(valid_data, batch_size=batch_size, shuffle=False)
+    testloader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
 
-    # Define dataloaders
-    trainloader = torch.utils.data.DataLoader(train_data, batch_size=args.batch_size, shuffle=True)
-    validloader = torch.utils.data.DataLoader(valid_data, batch_size=args.batch_size, shuffle=False)
-    testloader = torch.utils.data.DataLoader(test_data, batch_size=args.batch_size, shuffle=False)
-
-    return trainloader, validloader, testloader, full_train_data.class_to_idx
+    return trainloader, validloader, testloader, full_dataset.class_to_idx
 
 # ===========================
-# Calculate Class Weights
+# Section 4: Calculate Class Weights
 # ===========================
 
 def calculate_class_weights(trainloader, device):
+    """
+    Calculate class weights to handle class imbalance.
+    """
     # Extract all labels from the training data
     labels = []
     for _, label in trainloader:
@@ -189,10 +226,13 @@ def calculate_class_weights(trainloader, device):
     return torch.tensor(class_weights, dtype=torch.float).to(device)
 
 # ===========================
-# Training Function
+# Section 5: Training Function
 # ===========================
 
-def train_model(model, trainloader, validloader, criterion, optimizer, epochs, device):
+def train_model(model, trainloader, validloader, criterion, optimizer, epochs, device, save_dir):
+    """
+    Train the model and validate after each epoch.
+    """
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2)
     model.to(device)
     best_val_loss = float('inf')
@@ -299,7 +339,19 @@ def train_model(model, trainloader, validloader, criterion, optimizer, epochs, d
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             patience_counter = 0
-            torch.save(model.state_dict(), os.path.join(args.save_dir, 'best_model.pth'))
+            # Save the best model checkpoint
+            checkpoint = {
+                'arch': model.arch,
+                'output_classes': model.output_classes,
+                'state_dict': model.state_dict(),
+                'class_to_idx': model.class_to_idx,
+                'learning_rate': optimizer.param_groups[0]['lr'],
+                'epochs': epoch + 1
+            }
+            if not os.path.exists(save_dir):
+                os.makedirs(save_dir)
+            save_path = os.path.join(save_dir, 'best_model.pth')
+            torch.save(checkpoint, save_path)
         else:
             patience_counter += 1
             if patience_counter >= early_stopping_patience:
@@ -307,7 +359,7 @@ def train_model(model, trainloader, validloader, criterion, optimizer, epochs, d
                 break
 
     # Load the best model before returning
-    model.load_state_dict(torch.load(os.path.join(args.save_dir, 'best_model.pth')))
+    model.load_state_dict(torch.load(os.path.join(save_dir, 'best_model.pth'), map_location=device)['state_dict'])
 
     # Plot training and validation losses
     plt.figure(figsize=(10, 5))
@@ -340,63 +392,13 @@ def train_model(model, trainloader, validloader, criterion, optimizer, epochs, d
     return model
 
 # ===========================
-# Save Checkpoint Function
-# ===========================
-
-def save_checkpoint(model, save_dir, class_to_idx, learning_rate, epochs):
-    checkpoint = {
-        'arch': model.arch,
-        'output_classes': model.output_classes,
-        'state_dict': model.state_dict(),
-        'class_to_idx': class_to_idx,
-        'learning_rate': learning_rate,
-        'epochs': epochs
-    }
-    save_path = os.path.join(save_dir, 'checkpoint.pth')
-    torch.save(checkpoint, save_path)
-    print(f"Checkpoint saved to {save_path}")
-
-# ===========================
-# Load Checkpoint Function
-# ===========================
-
-def load_checkpoint(filepath):
-    checkpoint = torch.load(filepath, map_location=torch.device('cpu'))
-    arch = checkpoint['arch']
-    output_classes = checkpoint['output_classes']
-
-    # Initialize model
-    model = SkinDiseaseClassifier(
-        arch=arch,
-        output_classes=output_classes
-    )
-
-    model.load_state_dict(checkpoint['state_dict'])
-    class_to_idx = checkpoint['class_to_idx']
-    return model,class_to_idx
-
-# ===========================
-# Image Processing Function
-# ===========================
-
-def process_image(image_path, device='cpu'):
-    img = Image.open(image_path).convert("RGB")
-    inference_transforms = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                             std=[0.229, 0.224, 0.225])
-    ])
-    img_tensor = inference_transforms(img)
-    img_tensor = img_tensor.unsqueeze(dim=0).to(device)
-    return img_tensor
-
-# ===========================
-# Testing Function
+# Section 6: Testing Function
 # ===========================
 
 def test_model(model, testloader, criterion, device):
+    """
+    Evaluate the model on the test dataset.
+    """
     model.eval()
     test_loss = 0
     test_correct = 0
@@ -443,4 +445,129 @@ def test_model(model, testloader, criterion, device):
     plt.ylabel('Actual')
     plt.title('Confusion Matrix')
     plt.show()
-args = get_input_args()
+
+# ===========================
+# Section 7: Main Execution Flow
+# ===========================
+
+def get_input_args():
+    parser = argparse.ArgumentParser(description="Train or predict using a neural network on a dataset.")
+
+    subparsers = parser.add_subparsers(dest='command', help='Sub-command help')
+
+    # Sub-parser for the 'train' command
+    train_parser = subparsers.add_parser('train', help='Train the neural network')
+    train_parser.add_argument('data_dir', type=str, help='Directory containing the training data')
+    train_parser.add_argument('--save_dir', type=str, default='./', help='Directory for saving checkpoints')
+    train_parser.add_argument('--arch', type=str, default='resnet18', help='Model architecture to use (default: resnet18)')
+    train_parser.add_argument('--learning_rate', type=float, default=1e-4, help='Learning rate for the optimizer')
+    train_parser.add_argument('--epochs', type=int, default=12, help='Number of epochs for training')  # Changed default to 12
+    train_parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training')
+    train_parser.add_argument('--gpu', action='store_true', help='Use GPU for training if available')
+    train_parser.add_argument('--category_names', type=str, default='./skin_disease_class_to_name.json', help='Path to category names JSON file')
+    train_parser.add_argument('--top_k', type=int, default=3, help='Top K classes to display')
+
+    return parser.parse_args()
+
+def main():
+    # Parse input arguments
+    args = get_input_args()
+
+    # Set the device to use GPU if available and requested
+    device = torch.device("cuda" if args.gpu and torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
+    if args.command == 'train':
+        # Training process started
+        print("Training process started...")
+
+        # Load data
+        print("Loading data...")
+        trainloader, validloader, testloader, class_to_idx = load_data(
+            data_dir=args.data_dir,
+            batch_size=args.batch_size
+        )
+        print(f"Number of classes: {len(class_to_idx)}")
+
+        # Initialize the model
+        print("Initializing the model...")
+        output_classes = len(class_to_idx)
+        model = SkinDiseaseClassifier(
+            arch=args.arch,
+            output_classes=output_classes
+        )
+        model.class_to_idx = class_to_idx
+
+        # Move model to the device
+        model.to(device)
+
+        # Calculate class weights
+        print("Calculating class weights...")
+        class_weights = calculate_class_weights(trainloader, device)
+        print(f"Class weights: {class_weights}")
+
+        # Define loss criterion with class weights
+        criterion = nn.CrossEntropyLoss(weight=class_weights)
+
+        # Define optimizer (only parameters that require gradients)
+        optimizer = optim.Adam(
+            filter(lambda p: p.requires_grad, model.parameters()),
+            lr=args.learning_rate
+        )
+
+        # Train the model
+        print("Starting training...")
+        model = train_model(
+            model=model,
+            trainloader=trainloader,
+            validloader=validloader,
+            criterion=criterion,
+            optimizer=optimizer,
+            epochs=args.epochs,
+            device=device,
+            save_dir=args.save_dir  # Pass save_dir here
+        )
+
+        # Test the model
+        print("Testing the model...")
+        test_model(
+            model=model,
+            testloader=testloader,
+            criterion=criterion,
+            device=device
+        )
+
+        print("Training completed successfully.")
+
+    else:
+        print("Please provide a valid command (e.g., 'train').")
+
+if __name__ == '__main__':
+    main()
+
+# ===========================
+# Section 8: Make Predictions
+# ===========================
+
+def make_prediction(image_path, device, save_dir, category_names, top_k):
+    """
+    Make a prediction for a single image.
+    """
+    # Path to the saved checkpoint
+    checkpoint_path = os.path.join(save_dir, 'best_model.pth')
+
+    # Load the model from checkpoint
+    model = load_checkpoint(checkpoint_path, device=device)
+
+    # Load category names if provided
+    if os.path.exists(category_names):
+        with open(category_names, 'r') as f:
+            cat_to_name = json.load(f)
+    else:
+        cat_to_name = {}
+
+    # Make prediction
+    prediction = predict(model, image_path, top_k=top_k, device=device, cat_to_name=cat_to_name)
+
+    print(prediction)
+

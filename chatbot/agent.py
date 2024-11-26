@@ -25,8 +25,6 @@ class Agent:
         openai_api_key=openai_api_key
     )
 
-
-
     def translate_text(self, text: str, target_language: str) -> str:
         prompt = f"Translate the following text to {target_language}:\n\n{text}"
         translation = self.translation_llm(prompt)
@@ -57,8 +55,20 @@ class Agent:
             raise ValueError("The default chain must inherit from BaseChain.")
         self.default_chain = chain
         logger.info("Default chain set.")
+    def set_nurse_chain(self, chain: BaseChain):
+        """
+        Sets the default chain to use if no specific chain is matched.
 
-    def determine_chain(self, user_input: str) -> BaseChain:
+        Args:
+            chain (BaseChain): An instance of a chain inheriting from BaseChain.
+        """
+        if not isinstance(chain, BaseChain):
+            raise ValueError("The default chain must inherit from BaseChain.")
+        self.current_chain = chain
+        self.current_chain_name = 'Nurse'  # Initialize bot name
+        logger.info("Current chain set.")    
+
+    def determine_chain(self, user_input: str,conversation: str) -> BaseChain:
         """
         Determines which chain to use based on user input.
 
@@ -68,7 +78,7 @@ class Agent:
         Returns:
             BaseChain: The selected chain based on the input.
         """
-        determine = model_selector(user_input)
+        determine = model_selector(conversation)
         print(determine)
         # Check if the user is selecting a chain
         if determine == 1:
@@ -89,11 +99,11 @@ class Agent:
             logger.info("Switched to chain: donna")
             user_input = "Hi"
             return self.current_chain
-        elif user_input.lower() == "reset":
-            self.current_chain = None
-            self.current_chain_name = 'Nurse'  # Reset bot name
-            logger.info("Reset to default chain")
-            return self.default_chain
+       # elif user_input.lower() == "reset":
+        #    self.current_chain = None
+         #   self.current_chain_name = 'Nurse'  # Reset bot name
+        #    logger.info("Reset to default chain")
+        #    return self.default_chain
 
         # Use the current chain if one is set
         if self.current_chain:
@@ -104,7 +114,7 @@ class Agent:
         return self.default_chain
 
 
-    def handle_request(self, user_input: str, conversation_history: str, image_path, language='En') -> dict:
+    def handle_request(self, user_input: str, conversation_history: str, image_path, language='En', reset=False) -> dict:
         """
         Handles the user request by delegating to the appropriate chain.
 
@@ -117,8 +127,10 @@ class Agent:
         Returns:
             dict: The response from the selected chain.
         """
-        logger.info(f"user input:" + user_input)
-        chain = self.determine_chain(user_input)
+        logger.info(f"Conv History:  {conversation_history}")
+        logger.info(f"user input: {user_input}")
+        conversation_history = conversation_history +"\n"+ "Patient: " + user_input
+        chain = self.determine_chain(user_input,conversation_history)
         if not chain:
             logger.error("No chain available to handle the request.")
             return {
@@ -129,8 +141,8 @@ class Agent:
 
         logger.info(f"Delegating to chain: {chain.__class__.__name__}")
 
-        if user_input.lower() == 'reset':
-            user_input = 'Hi'
+      #  if user_input.lower() == 'reset':
+        #    user_input = 'Hi'
 
         # Generate the response using the chain
         response = chain.generate_response(user_input, conversation_history, image_path)
@@ -141,7 +153,7 @@ class Agent:
             response_in_arabic = self.translate_text(response['response'], 'Arabic')
             print(f"Translated response to Arabic: {response_in_arabic}")
             response['response'] = response_in_arabic
-
+       
         # Include bot icon based on current chain
         if self.current_chain_name == 'Symptom Disease Doctor':
             response['bot_icon'] = 'images/symptom_disease_icon.png'

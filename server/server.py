@@ -65,46 +65,75 @@ def serve_static(filename):
 
 # Chat route for POST request
 @app.route('/chat', methods=['POST'])
+
 def chat():
     try:
+        # Initialize variables
         image_path = None
         audio_path = None
-        message = request.form.get('message')
-        language = request.form.get('language')  # Retrieve the selected language
-        logger.info(f"Received language: {language}")  # Debugging
+        message = None
+        language = 'En'  # Default language
 
-        image = request.files.get('image')
-        audio = request.files.get('audio')
+        # Check if the request is JSON (e.g., reset request)
+        if request.is_json:
+            data = request.get_json()
+            if data.get('reset'):
+                # Reset the agent and memory
+                memory.clear()
+                agent.set_default_chain(agent.chains.get('base_model'))
+                agent.set_nurse_chain(agent.chains.get('base_model'))
+                logger.info("Agent and memory have been reset.")
 
-        # Handle image upload
-        if image:
-            image_filename = secure_filename(image.filename)
-            image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_filename)
-            image.save(image_path)
-            logger.info(f"Image saved to {image_path}")
+                # Return initial greeting
+                response_payload = {
+                    'gpt_response': "Hello! How can I assist you today?",
+                    'bot_name': 'Nurse',
+                    'bot_icon': 'images/nurse_icon.png'
+                }
+                return jsonify(response_payload), 200
+            else:
+                # Handle normal JSON message (if any)
+                message = data.get('message')
+                language = data.get('language', 'En')
+        else:
+            # Handle form data (e.g., message with image or audio)
+            message = request.form.get('message')
+            language = request.form.get('language', 'En')
+            logger.info(f"Received language: {language}")
 
-        # Handle audio upload
-        if audio:
-            audio_filename = secure_filename(audio.filename)
-            audio_path = os.path.join(app.config['UPLOAD_FOLDER'], audio_filename)
-            audio.save(audio_path)
-            logger.info(f"Audio saved to {audio_path}")
+            image = request.files.get('image')
+            audio = request.files.get('audio')
 
-            # Transcribe the audio using SpeechToTextModel
-            try:
-                transcribed_text = speech_to_text_model.transcribe(audio_path)
-                logger.info(f"Transcribed Text: {transcribed_text}")
-                message = transcribed_text  # Use the transcribed text as the message
-            except Exception as e:
-                logger.error(f"Error during transcription: {e}", exc_info=True)
-                return jsonify({'error': 'Audio transcription failed.'}), 500
+            # Handle image upload
+            if image:
+                image_filename = secure_filename(image.filename)
+                image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_filename)
+                image.save(image_path)
+                logger.info(f"Image saved to {image_path}")
+
+            # Handle audio upload
+            if audio:
+                audio_filename = secure_filename(audio.filename)
+                audio_path = os.path.join(app.config['UPLOAD_FOLDER'], audio_filename)
+                audio.save(audio_path)
+                logger.info(f"Audio saved to {audio_path}")
+
+                # Transcribe the audio using SpeechToTextModel
+                try:
+                    transcribed_text = speech_to_text_model.transcribe(audio_path)
+                    logger.info(f"Transcribed Text: {transcribed_text}")
+                    message = transcribed_text  # Use the transcribed text as the message
+                except Exception as e:
+                    logger.error(f"Error during transcription: {e}", exc_info=True)
+                    return jsonify({'error': 'Audio transcription failed.'}), 500
 
         if not message and not image and not audio:
             return jsonify({'error': 'No message, image, or audio provided.'}), 400
 
-        if message and message.strip().lower() == "reset":
-            memory.clear()
-            # Implement any additional reset logic if necessary
+        # Remove or comment out the old reset handling based on message content
+        # if message and message.strip().lower() == "reset":
+        #     memory.clear()
+        #     # Implement any additional reset logic if necessary
 
         # Retrieve conversation history
         memory_variables = memory.load_memory_variables({})
@@ -127,6 +156,7 @@ def chat():
         ])
 
         # Delegate to the agent
+        print(agent.current_chain)
         response_dict = agent.handle_request(user_input_en, formatted_history, image_path, language)
 
         # Add user and assistant messages to memory

@@ -6,7 +6,7 @@ from actual_models.symptom_data_processing import get_similar_docs,get_diseases_
 import numpy as np
 import logging
 from .base_chains import BaseChain
-from ..utils import query_refiner_models, guard_base
+from ..utils import query_refiner_models, guard_base_symptom
 # Configure Logging
 logger = logging.getLogger(__name__)
 class SymptomDiseaseChain(BaseChain):
@@ -313,19 +313,17 @@ User Input:
             str: The chatbot's response.
             str or None: The predicted disease if available.
         """
-        guard_response = guard_base(user_input)
-                
-        if (guard_response == 'allowed'):
+        
             # Extract symptoms from user input
-            symptoms = self.extract_symptoms(user_input,conv_history)
-            logger.info(f"Extracted symptoms: {symptoms}")
-            refined_query = query_refiner(user_input,self.current_disease)
-            logger.info(f"Refined query: {refined_query}")
-            if image_path:
+        symptoms = self.extract_symptoms(user_input,conv_history)
+        logger.info(f"Extracted symptoms: {symptoms}")
+        refined_query = query_refiner(user_input,self.current_disease)
+        logger.info(f"Refined query: {refined_query}")
+        if image_path:
                 response = "This Model does not support images, please either choose a model that does, or refrain from attaching images."
                 return {"response": response,
                     }
-            elif symptoms:
+        elif symptoms:
                 # Predict disease based on extracted symptoms
                 predicted_disease = self.predict_disease(symptoms)
                 logger.info(f"Predicted disease: {predicted_disease}")
@@ -347,7 +345,7 @@ User Input:
                     'response': response_message.content,
                     'predicted_disease': predicted_disease
                 }
-            elif any(keyword in refined_query for keyword in ["description", "precautions"]):
+        elif any(keyword in refined_query for keyword in ["description", "precautions"]):
                 logger.info("User is requesting description or precautions.")
                 if "description" in refined_query.lower():
                     desired_section = "description"
@@ -373,7 +371,7 @@ User Input:
 
 
 
-            elif "severity" in refined_query.lower():
+        elif "severity" in refined_query.lower():
                 logger.info("User is requesting severity information.")
                 # Use the updated query_refiner_severity function to generate severity-related questions
                 refined_severity_queries = query_refiner_severity(conv_history, user_input)
@@ -412,7 +410,7 @@ User Input:
                     'predicted_disease': ""
                 }
 
-            else:
+        else:#honzbbt convo
                 logger.info("No symptoms or specific queries detected. Prompting for symptoms.")
                 # No symptoms or asking about info is detected, generate a prompt to ask for symptoms
                 response_message = self.llm.invoke(self.main_prompt.format(
@@ -424,6 +422,5 @@ User Input:
                 return {
                     'response': response_message.content,
                 }    
-        else:
-            return {"response": guard_response}
+     
 

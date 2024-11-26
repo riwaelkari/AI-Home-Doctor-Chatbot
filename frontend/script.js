@@ -57,6 +57,8 @@ const stopRecordingButton = document.getElementById('stopRecordingButton');
 const sendAudioButton = document.getElementById('sendAudioButton');
 const cancelAudioButton = document.getElementById('cancelAudioButton');
 const waveformCanvas = document.getElementById('waveformCanvas');
+// Elements
+const resetButton = document.getElementById('resetButton');
 
 // Initial Chat State
 let messages = [
@@ -367,6 +369,11 @@ sendButton.addEventListener('click', function() {
     console.log('Send button clicked'); // Debugging
     sendMessage();
 });
+// Event listener for reset button
+resetButton.addEventListener('click', function() {
+    resetChatbot();
+});
+
 
 // Allow sending message by pressing Enter key
 userInput.addEventListener('keypress', function(event) {
@@ -451,6 +458,32 @@ function hideImageNameBox() {
     fileInput.value = '';
     removeFileAttachedIndicator();
 }
+function resetChatbot() {
+    // Clear the messages array and reset to initial state
+    messages = [
+        { role: "bot", content: "Hello! How can I assist you today?"+"\n"+" مرحبًا! كيف يمكنني مساعدتك اليوم؟", bot_name: "Nurse", bot_icon: 'images/nurse_icon.png' }
+    ];
+    currentBotName = "Nurse";
+    currentBotIcon = 'images/nurse_icon.png';
+    renderMessages();
+
+    // Send a reset request to the server
+    fetch(API_CHAT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ reset: true }),
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Chatbot reset:', data.message);
+    })
+    .catch(error => {
+        console.error('Error resetting chatbot:', error);
+    });
+}
+
 
 // Show upload indicator
 function showUploadIndicator() {

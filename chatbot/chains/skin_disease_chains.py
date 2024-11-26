@@ -6,9 +6,9 @@ from langchain.prompts import PromptTemplate
 import logging
 from PIL import Image
 import io
-from actual_models.skin_disease_model import process_image
+from actual_models.skin_disease_model import predict
 
-from ..utils import query_refiner_models, guard_base
+from ..utils import query_refiner_models, guard_base_skin
 logger = logging.getLogger(__name__)
 
 class SkinDiseaseChain(BaseChain):
@@ -107,18 +107,16 @@ Conversation history: {conversation_history}
         Returns:
             dict: A dictionary containing the chatbot's response and any additional data.
         """
-        guard_response = guard_base(user_input)
-        if (guard_response == 'allowed'):
-            predicted_disease = None
-            response = ""
+        
+        
+        predicted_disease = None
+        response = ""
 
-            if image_path:
+        if image_path:
                 try:
                     # Process the image and predict the disease
-                    predicted_disease = self.disease_model.predict(
-                        image_path,
-                        device=device,
-                        class_to_index=self.class_to_idx
+                    predicted_disease = predict( self.disease_model,
+                        image_path
                     )
                     logger.info(f"Predicted Disease: {predicted_disease}")
 
@@ -135,7 +133,7 @@ Conversation history: {conversation_history}
                 except Exception as e:
                     logger.error(f"Error processing image: {e}")
                     response = "I'm sorry, but I couldn't process the image you provided. Could you please try uploading it again?"
-            else:
+        else:
                 # No image provided; prompt the user to upload an image
                 main_prompt = self.get_main_prompt.format(
                     user_input=user_input,
@@ -145,14 +143,14 @@ Conversation history: {conversation_history}
                 response = self.llm.invoke(main_prompt)
 
             # Handle LLM response object
-            if hasattr(response, 'content'):
+        if hasattr(response, 'content'):
                 final_response = response.content
-            else:
+        else:
                 final_response = response
 
-            return {
+        return {
                 'response': final_response,
                 'predicted_disease': predicted_disease if predicted_disease else ""
             }
-        else:
-            return {"response": guard_response}
+    
+        

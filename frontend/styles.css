@@ -233,6 +233,61 @@ body {
     background-color: #262730; /* Same as chatbox */
     color: #f1f1f1; /* Text color */
 }
+/* Top Buttons Container */
+.top-buttons {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 20px;
+    z-index: 1002; /* Ensure it appears above other elements */
+}
+
+/* Language Toggle Button */
+#languageToggle {
+    padding: 10px;
+    background-color: #262730;
+    border: none;
+    border-radius: 5px;
+    color: #f1f1f1;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+#languageToggle:hover {
+    background-color: #333;
+}
+
+#languageToggle:focus {
+    outline: none;
+}
+
+/* Reset Button */
+#resetButton {
+   position: fixed;
+    right: 55px;
+    padding: 10px;
+    background-color: #262730;
+    border: none;
+    border-radius: 5px;
+    color: #f1f1f1;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+#resetButton:hover {
+    background-color: #333;
+}
+
+#resetButton:focus {
+    outline: none;
+}
+
+/* Reset Icon (if using an image) */
+.reset-icon {
+    width: 20px;
+    height: 20px;
+}
 
 .fixed-input-container input::placeholder {
     color: #b3b3b3; /* Placeholder text color */
@@ -522,6 +577,7 @@ audio {
 #languageToggle:focus {
     outline: none;
 }
+
 
 /* Chat Bubbles */
 .chat-bubble {

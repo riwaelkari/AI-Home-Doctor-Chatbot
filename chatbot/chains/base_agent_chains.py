@@ -28,21 +28,19 @@ class BaseModelChain(BaseChain):
     Available Doctors:
     1. Symptom Disease Doctor: Analyzes symptoms to diagnose diseases.
     2. Skin Disease Doctor: Classifies skin diseases based on images.
-    3. Donna the Secretary: Helps schedule medication reminders and manage prescriptions.
+    3. Donna the Secretary: Helps schedule medication reminders.
     Emergency Contact:
     If you are experiencing a health emergency, please call 140 for the Lebanese Red Cross immediately.
     You cannot take symptoms you are a nurse that is constrained to nurse related stuff.
     If the User talks in arabic answer in english and tell him to switch to the Arabic feature on thew button on the top right.
     You do not know how to sechedule medication, Donna does.
 
-    User Input: {user_input}
-
-    Conversation History:
+    Conversation:
     {conversation_history}
     
     """
         return PromptTemplate(
-            input_variables=["user_input", "conversation_history"],
+            input_variables=["conversation_history"],
             template=template
         )
 
@@ -66,7 +64,7 @@ class BaseModelChain(BaseChain):
         )
 
     ##################################################################################################################
-    def generate_response(self, user_input: str, conversation_history: str, image_path: str) -> dict:
+    def generate_response(self, user_input: str, conversation: str, image_path: str) -> dict:
         """
         Generates a response prompting the user to select a doctor.
         
@@ -80,7 +78,6 @@ class BaseModelChain(BaseChain):
         """
         guard_response = guard_base(user_input)
         if (guard_response == 'allowed'):
-            print(conversation_history)
             listofmodels = "Symptom Disease Doctor, Skin Disease Doctor, Donna"
             query = query_refiner_models(user_input, listofmodels)
             print(query)
@@ -94,8 +91,7 @@ class BaseModelChain(BaseChain):
             else:
                 response = self.llm.invoke(
                     self.get_main_prompt.format(
-                        user_input=user_input,
-                        conversation_history=conversation_history
+                        conversation_history=conversation
                     )
                 )
             return {"response": response.content}
