@@ -14,22 +14,19 @@ from dateutil.parser import parse as parse_date
 import os
 import uuid
 from ..utils import query_refiner_models, guard_base_donna
-
 # Configure logging
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO) 
 
 class DonnaChain(BaseChain):
     _instance = None  # <-- Singleton instance
     _lock = threading.Lock()  # <-- Lock for thread-safe instantiation
 
-    def __init__(self, llm, default_reminder_interval_minutes=1440):
+
+    def __init__(self, llm):
         """
         Initializes the DonnaChain.
         Args:
             llm (ChatOpenAI): The language model.
-            default_reminder_interval_minutes (int): Default interval between reminders in minutes.
-                                                    Default is 1440 minutes (1 day).
         """
         # Prevent re-initialization of the singleton instance
         if hasattr(self, '_initialized') and self._initialized:
@@ -40,12 +37,12 @@ class DonnaChain(BaseChain):
         self.llm = llm
         self.get_prompt = self.main_prompt()
         self.prescriptions = []
-        self.default_reminder_interval = timedelta(minutes=default_reminder_interval_minutes)
         self.email_thread = threading.Thread(target=self.send_reminder_emails)
         self.email_thread.daemon = True
         self.email_thread.start()
         logger.info("DonnaChain initialized and email reminder thread started.")
         self._initialized = True  # <-- Mark as initialized
+
 
     def main_prompt(self):
         """
@@ -58,7 +55,7 @@ You are Donna, a friendly and efficient medical secretary. You help users schedu
 
 Instructions:
 - Greet the user and offer assistance in setting up medication reminders.
-- Ask the user to collect from them the medication name, dosage, timing for the first email, number of additional reminders, interval between reminders, and user's email address.
+- Ask the user to collect from him the medication name, dosage, timing, and user's email address.
 - Confirm the schedule with the user.
 - Thank the user and inform them that you will send reminders accordingly.
 
@@ -102,30 +99,26 @@ User input:
 
             # Enhanced Extraction Prompt to Enforce JSON within Code Blocks
             extraction_prompt = f"""
-Please extract the following information from the user's input and conversation history:
-- Medication name
-- Dosage
-- Timing for the first email (e.g., "in 2 minutes")
-- Number of additional reminders (e.g., "3 more")
-- Interval between additional reminders (e.g., "every minute")
-- User's email address
+    Please extract the following information from the user's input and conversation history:
+    - Medication name
+    - Dosage
+    - Timing (including time of day and frequency)
+    - User's email address
 
-Provide the information in strict JSON format with the keys: medication, dosage, initial_timing, additional_reminders, interval_between_reminders, email.
+    Provide the information in strict JSON format with the keys: medication, dosage, timing, email.
 
-Enclose the JSON in triple backticks and specify 'json' for syntax highlighting.
+    Enclose the JSON in triple backticks and specify 'json' for syntax highlighting.
 
-Example:
+    Example:
 
-```json
-{{
-    "medication": "Aspirin",
-    "dosage": "1 pill",
-    "initial_timing": "in 2 minutes",
-    "additional_reminders": 3,
-    "interval_between_reminders": "every minute",
-    "email": "user@example.com"
-}}
- ```
+    ```json
+    {{
+        "medication": "Aspirin",
+        "dosage": "1 pill",
+        "timing": "in 5 minutes",
+        "email": "user@example.com"
+    }}
+    ```
     Ensure that the JSON is the only content in your response. Do not include any additional text.
 
     Conversation history:
@@ -134,6 +127,7 @@ Example:
     User input:
     {user_input}
     """
+
             extraction_response = self.llm.invoke(extraction_prompt)
 
             # Enhanced JSON Parsing to Handle Code Blocks and Additional Text
@@ -154,30 +148,18 @@ Example:
                 prescription_data = json.loads(json_content)
 
                 # Validate that all required keys are present
-                required_keys = {"medication", "dosage", "initial_timing", "additional_reminders", "interval_between_reminders", "email"}
+                required_keys = {"medication", "dosage", "timing", "email"}
                 if not required_keys.issubset(prescription_data.keys()):
                     missing = required_keys - prescription_data.keys()
                     raise ValueError(f"Missing keys in JSON: {missing}")
 
-                # Parse initial timing to get the first reminder time using dateparser
-                initial_reminder = dateparser.parse(
-                    prescription_data['initial_timing'],
-                    settings={'RELATIVE_BASE': datetime.now()}
-                )
-                if not initial_reminder:
-                    raise ValueError("Unable to parse initial timing.")
-                logger.debug("Parsed initial reminder time: " + str(initial_reminder))
+                # Parse timing to get the next reminder time using dateparser
+                next_reminder = dateparser.parse(prescription_data['timing'], settings={'RELATIVE_BASE': datetime.now()})
+                if not next_reminder:
+                    raise ValueError("Unable to parse timing.")
+                print("Parsed date: " + str(next_reminder))
 
-                # Parse interval between reminders
-                reminder_interval = self.parse_interval(prescription_data['interval_between_reminders'])
-                if not reminder_interval:
-                    raise ValueError("Unable to parse interval between reminders.")
-                logger.debug("Parsed interval between reminders: " + str(reminder_interval))
-
-                # Assign fields for scheduling
-                prescription_data['next_reminder'] = initial_reminder
-                prescription_data['reminders_remaining'] = int(prescription_data['additional_reminders'])
-                prescription_data['reminder_interval'] = reminder_interval
+                prescription_data['next_reminder'] = next_reminder
 
                 # Assign a unique ID
                 prescription_data['id'] = str(uuid.uuid4())
@@ -187,9 +169,7 @@ Example:
                     p['email'] == prescription_data['email'] and
                     p['medication'].lower() == prescription_data['medication'].lower() and
                     p['dosage'].lower() == prescription_data['dosage'].lower() and
-                    p['initial_timing'] == prescription_data['initial_timing'] and
-                    p['additional_reminders'] == prescription_data['additional_reminders'] and
-                    p['interval_between_reminders'] == prescription_data['interval_between_reminders']
+                    p['timing'] == prescription_data['timing']
                     for p in self.prescriptions
                 ):
                     # Add to prescriptions list
@@ -215,36 +195,6 @@ Example:
         else:
             return {"response": guard_response}
 
-    def parse_interval(self, interval_str: str) -> timedelta:
-        """
-        Parses a natural language interval string and converts it to a timedelta object.
-        Args:
-            interval_str (str): The interval string (e.g., "every minute", "every 2 minutes").
-        Returns:
-            timedelta: The corresponding timedelta object.
-        """
-        # Use regex to extract the number and the unit
-        match = re.match(r'every\s+(\d+)?\s*(second|minute|hour|day)s?', interval_str.lower())
-        if not match:
-            logger.error(f"Unable to parse interval string: '{interval_str}'")
-            return None
-
-        number = match.group(1)
-        unit = match.group(2)
-
-        number = int(number) if number else 1  # Default to 1 if no number is provided
-
-        if unit == 'second':
-            return timedelta(seconds=number)
-        elif unit == 'minute':
-            return timedelta(minutes=number)
-        elif unit == 'hour':
-            return timedelta(hours=number)
-        elif unit == 'day':
-            return timedelta(days=number)
-        else:
-            logger.error(f"Unknown time unit in interval string: '{unit}'")
-            return None
 
     def send_reminder_emails(self):
         """
@@ -264,16 +214,10 @@ Example:
                         subject="Medication Reminder: " + prescription['medication'],
                         message=f"Reminder: Please take {prescription['dosage']} of {prescription['medication']}."
                     )
-                    # Schedule next reminder if any remain
-                    if prescription['reminders_remaining'] > 0:
-                        prescription['next_reminder'] += prescription['reminder_interval']
-                        prescription['reminders_remaining'] -= 1
-                        logger.info(f"Scheduled next reminder for {prescription['email']} at {prescription['next_reminder']}. Reminders remaining: {prescription['reminders_remaining']}")
-                    else:
-                        logger.info(f"No more reminders to schedule for {prescription['email']}.")
-            # Sleep for a defined interval before checking again
-            # For testing, set to 60 seconds; adjust as needed
-            time.sleep(60)
+                    # Schedule next reminder (assuming daily for simplicity)
+                    prescription['next_reminder'] += timedelta(days=1)
+                    logger.info(f"Sent reminder email to {prescription['email']}")
+            time.sleep(60)  # Check every minute
 
     def send_email(self, to_email, subject, message):
         """
