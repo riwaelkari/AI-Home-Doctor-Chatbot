@@ -57,8 +57,6 @@ This project utilizes the following datasets:
 
 ## Setup Instructions
 
-## Setup Instructions
-
 Setting up the **Chatbot Home Doctor** involves several steps, including environment setup, dependency installation, dataset preparation, and running the application. Follow the steps below to get your project up and running.
 
 ### Prerequisites
