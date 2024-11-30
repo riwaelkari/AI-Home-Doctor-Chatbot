@@ -11,19 +11,23 @@ A chatbot application that provides medical assistance and advice.
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
   - [Configuration](#configuration)
-  - [Running the Application](#running-the-application)
+- [Run the Application](#running-the-application)
 - [Usage](#usage)
 - [Contributing](#contributing)
-- [License](#license)
 - [Acknowledgements](#acknowledgements)
 
 ## Features
 
-- **Symptom Checker**: Input symptoms to receive potential disease diagnoses.
-- **Skin Disease Diagnosis**: Upload images to analyze and identify possible skin conditions.
+- **Hierarchical Structure**: Utilizes Hierarchy in which the agent controls which chain will be selected based on user input.
+- **Symptom Disease Doctor**: Input symptoms to receive potential disease diagnoses and insights.
+- **Skin Disease Doctor**: Upload images to analyze and identify possible skin conditions.
+- **Secretary Assistant**: Donna the Secretary handles medication scheduling for reminders.
+- **Seamless Integration**: Supports very simple integration of additional models, especially due to the versatile frontend and protected Chatbot API calls passing through Guards.
 - **Conversational Interface**: Interactive chatbot powered by LangChain for seamless user experience.
-- **Secretary Assistant**: "Donna the Secretary" handles scheduling and administrative tasks.
 - **Image and Audio Support**: Accepts and processes images and audio files for comprehensive assistance.
+- **Bilingual Support**: Accepts both English and Arabic.
+- **Query refinment**: Uses query refiners to make sure the chatbot gets the right user input.
+- **Gaurdrail Support**: Utilizes Guards to protect the user from unintended chatbot answers.
 
 ## Datasets
 
@@ -73,7 +77,7 @@ Before you begin, ensure you have the following installed on your system:
 1. **Clone the Repository**
 
    ```
-   git clone https://github.com/yourusername/chatbot-home-doctor.git
+   git clone https://github.com/dayehhadi/AI-Home-Doctor-Chatbot
    cd chatbot-home-doctor
    ```
 
@@ -95,7 +99,7 @@ Before you begin, ensure you have the following installed on your system:
 
 1. **Add Environment Variables**
 
-Creat a `.env` file in the root directory and add the following neseccary environmental variables:
+Create a `.env` file in the root directory and add the following neseccary environmental variables:
 
    ```
    SECRET_TOKEN = '' # Your OpenAI API Key 
@@ -112,6 +116,12 @@ Open a terminal in the root repository and run the following:
    ```
    python -m server.server
    ```
-The server should start on `http://localhost:5000/`.
+The server should start on `http://127.0.0.1:5000/`.
 
 
+## Acknowledgements
+
+- Special Thanks to Professor Ammar Mhanna for providing us with the OpenAI API Key, without him we could not have implemented such a good chatbot.
+- [LangChain](https://www.langchain.com/) for the conversational AI framework.
+- [Kaggle](https://www.kaggle.com/) for providing the datasets.
+- [OpenAI](https://openai.com/) for the GPT-4 architecture powering the chatbot.
