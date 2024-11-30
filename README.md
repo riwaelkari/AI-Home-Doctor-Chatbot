@@ -103,7 +103,7 @@ Creat a `.env` file in the root directory and add the following neseccary enviro
    GMAIL_USER = '' # email of the account used to send reminders
    ```
 
-### Run the Application
+## Run the Application
 
 1. **Start the Flask server**
 
