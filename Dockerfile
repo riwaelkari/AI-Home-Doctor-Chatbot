@@ -23,4 +23,5 @@ COPY . /app/
 EXPOSE 5000
 
 # Run the application
-CMD ["python", "run_server.py"]
+CMD ["python", "-m", "server.server"]
+

@@ -8,14 +8,11 @@ python-dotenv
 numpy
 langchain
 openai
-streamlit
-ast
 chains
 langchain-community
 tiktoken 
 faiss-cpu
 langchain-openai
-streamlit_chat
 sentence-transformers
 unstructured
 langchain-huggingface
@@ -25,4 +22,3 @@ guardrails-ai
 torch
 torchvision
 seaborn
-joblib
