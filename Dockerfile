@@ -1,15 +1,25 @@
-# Dockerfile
 
-# Use an official Python runtime as a parent image
-FROM python:3.8-slim
+# Use an official Python runtime as the base image
+FROM python:3.9-slim
 
-
-# Set environment variables
+# Set environment variables to prevent Python from writing .pyc files and to buffer stdout and stderr
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Set work directory
+# Set the working directory inside the container
 WORKDIR /app
+
+# Install system dependencies
+# (Optional: Uncomment the following lines if your project requires additional system packages)
+RUN apt-get update && apt-get install -y \
+     build-essential \
+     gcc \
+     python3.dev \
+     libpcap \ 
+     libssl-dev \
+     libffi-dev \
+     libpq-dev \
+     && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
 COPY requirements.txt /app/

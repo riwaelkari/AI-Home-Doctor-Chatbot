@@ -13,7 +13,7 @@ import json
 from dateutil.parser import parse as parse_date
 import os
 import uuid
-from ..utils import query_refiner_models, guard_base_donna
+from ..utils import query_refiner_models,guard_donna
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -54,26 +54,24 @@ class DonnaChain(BaseChain):
 You are Donna, a friendly and efficient medical secretary. You help users schedule their medication reminders.
 
 Instructions:
-- Greet the user and offer assistance in setting up medication reminders.
+- Greet the user and offer assistance in setting up medication reminders and saying bye.
 - Ask the user to collect from him the medication name, dosage, timing, and user's email address.
 - Confirm the schedule with the user.
 - Thank the user and inform them that you will send reminders accordingly.
-
+_do not reply with "Donna:" 
 - Do not provide medical advice.
 - Ensure privacy by not sharing any personal information elsewhere.
 
-Conversation history:
-{conversation_history}
+Conversation:
+{conversation}
 
-User input:
-{user_input}
 """
         return PromptTemplate(
-            input_variables=["user_input", "conversation_history"],
+            input_variables=["conversation"],
             template=template
         )
 
-    def generate_response(self, user_input: str, conversation_history: str, image_path: str = None) -> dict:
+    def generate_response(self, user_input: str, conversation: str, image_path: str = None) -> dict:
         """
         Generates a response based on user input and conversation history.
         Args:
@@ -84,13 +82,11 @@ User input:
             dict: A dictionary containing the chatbot's response and any additional data.
         """
         #guard_response = guard_base_donna
-        guard_response = "allowed"
-
-        if guard_response == 'allowed':
+        guard_response = guard_donna(user_input) #apply guard rails here
+        if (guard_response == 'allowed'):
             # Generate response to the user
             prompt = self.get_prompt.format(
-                user_input=user_input,
-                conversation_history=conversation_history
+                conversation=conversation
             )
             response = self.llm.invoke(prompt)
 
@@ -104,6 +100,15 @@ User input:
     - Dosage
     - Timing (including time of day and frequency)
     - User's email address
+    - Greet the user and offer assistance in setting up medication reminders and saying bye.
+- Ask the user to collect from him the medication name, dosage, timing, and user's email address.
+- Confirm the schedule with the user.
+- Thank the user and inform them that you will send reminders accordingly.
+_do not reply with "Donna:" 
+- Do not provide medical advice.
+-something issue or something relating to the reminders or they failed or some issue with reminders or emails
+- Ensure privacy by not sharing any personal information elsewhere.
+
 
     Provide the information in strict JSON format with the keys: medication, dosage, timing, email.
 
@@ -121,11 +126,8 @@ User input:
     ```
     Ensure that the JSON is the only content in your response. Do not include any additional text.
 
-    Conversation history:
-    {conversation_history}
-
-    User input:
-    {user_input}
+    Conversation:
+    {conversation}
     """
 
             extraction_response = self.llm.invoke(extraction_prompt)
@@ -155,11 +157,15 @@ User input:
 
                 # Parse timing to get the next reminder time using dateparser
                 next_reminder = dateparser.parse(prescription_data['timing'], settings={'RELATIVE_BASE': datetime.now()})
+                frequency_delta = (next_reminder - datetime.now()).total_seconds()
                 if not next_reminder:
                     raise ValueError("Unable to parse timing.")
+                if frequency_delta <= 0:#new
+                         raise ValueError("Timing must be in the future.")#new
                 print("Parsed date: " + str(next_reminder))
 
                 prescription_data['next_reminder'] = next_reminder
+                prescription_data['frequency_seconds'] = frequency_delta #new
 
                 # Assign a unique ID
                 prescription_data['id'] = str(uuid.uuid4())

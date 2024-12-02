@@ -8,7 +8,7 @@ from PIL import Image
 import io
 from actual_models.skin_disease_model import predict
 
-from ..utils import query_refiner_models, guard_base_skin
+from ..utils import query_refiner_models
 logger = logging.getLogger(__name__)
 
 class SkinDiseaseChain(BaseChain):
@@ -42,17 +42,17 @@ You are a friendly medical assistant specialized in diagnosing skin diseases bas
 
 Do not use the phrase "Skin Disease Doctor: or Nurse:, be normal"
 
+Do not diagnose the patient without him sending a picture.
+
 f the User talks in arabic answer in english and tell him to switch to the Arabic feature on thew button on the top right.
 
-User input: {user_input}
-
-Conversation history: {conversation_history}
+Conversation: {conversation}
 
     """
 
 
         return PromptTemplate(
-            input_variables=["user_input", "conversation_history", "image_uploaded"],
+            input_variables=["conversation", "image_uploaded"],
             template=template
         )
 
@@ -81,20 +81,17 @@ Conversation history: {conversation_history}
         - Do not use technical jargon that the user might not understand.
         - Ensure clarity and empathy in your response.
 
-        Conversation History:
-        {conversation_history}
-
-        User Input:
-        {user_input}
+        Conversation:
+        {conversation}
 
         """
 
         return PromptTemplate(
-            input_variables=["user_input", "conversation_history", "predicted_disease"],
+            input_variables=["conversation", "predicted_disease"],
             template=template
         )
 
-    def generate_response(self, user_input: str, conversation_history: str, image_path: str = None, device: str = 'cpu') -> dict:
+    def generate_response(self, user_input: str, conversation: str, image_path: str = None, device: str = 'cpu') -> dict:
         """
         Generates a response based on user input, conversation history, and an optional image.
 
@@ -125,8 +122,7 @@ Conversation history: {conversation_history}
 
                     # Generate response using the disease-specific prompt
                     disease_prompt = self.get_disease.format(
-                        user_input=user_input,
-                        conversation_history=conversation_history,
+                        conversation=conversation,
                         predicted_disease=predicted_disease
                     )
                     response = self.llm.invoke(disease_prompt)
@@ -136,8 +132,7 @@ Conversation history: {conversation_history}
         else:
                 # No image provided; prompt the user to upload an image
                 main_prompt = self.get_main_prompt.format(
-                    user_input=user_input,
-                    conversation_history=conversation_history,
+                    conversation=conversation,
                     image_uploaded=self.image_provided
                 )
                 response = self.llm.invoke(main_prompt)

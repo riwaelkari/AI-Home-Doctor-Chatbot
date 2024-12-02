@@ -3,6 +3,23 @@ import joblib
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 class SymptomDiseaseModel:
+    """
+    A class to handle disease prediction based on symptoms using a KNN model.
+
+    This class provides methods to load a pre-trained KNN model, encode symptoms, 
+    and predict diseases based on a list of provided symptoms. It also handles 
+    unrecognized symptoms and returns predictions for the most likely diseases.
+
+    Attributes:
+        model (sklearn.neighbors.KNeighborsClassifier): The pre-trained KNN model.
+        all_symptoms (list): A list of all possible symptoms used in training the model.
+        y_encoded (list): A list of encoded disease labels corresponding to the symptoms.
+        label_encoder (LabelEncoder): The encoder used to map disease names to numeric values.
+  Methods:
+        load_model(model_path, encoder_path): Loads the pre-trained KNN model and label encoder.
+        set_additional_attributes(all_symptoms, y_encoded): Sets the list of symptoms and encoded disease labels.
+        predict_disease(symptoms_list): Predicts the disease based on the provided list of symptoms.
+    """
     def __init__(self):
         self.model = None
         self.all_symptoms = []
@@ -10,11 +27,31 @@ class SymptomDiseaseModel:
         self.label_encoder = None
 
     def load_model(self, model_path='saved_models/knn_model.pkl', encoder_path='saved_models/label_encoder.pkl'):
-        # Load the trained KNN model and label encoder
+        """
+        Loads the pre-trained KNN model and label encoder from specified paths.
+
+        Args:
+            model_path (str): Path to the saved KNN model.
+            encoder_path (str): Path to the saved label encoder.
+
+        Returns:
+            None
+        """
+             # Load the trained KNN model and label encoder
         self.model = joblib.load(model_path)
         self.label_encoder = joblib.load(encoder_path)
 
     def set_additional_attributes(self, all_symptoms, y_encoded):
+        """
+        Sets additional attributes like the list of symptoms and encoded disease labels.
+
+        Args:
+            all_symptoms (list): List of all possible symptoms used for training.
+            y_encoded (list): List of encoded disease labels corresponding to symptoms.
+
+        Returns:
+            None
+        """
         self.all_symptoms = all_symptoms
         self.y_encoded = y_encoded
 
@@ -24,7 +61,7 @@ class SymptomDiseaseModel:
 
         Args:
             symptoms_list (list): List of symptoms, e.g., ["itching", "skin rash"]
-#go away  U FIX? okay just go have fuUnR KISHYING ME? yes
+
         Returns:
             dict: A dictionary containing either the disease confidences or an error message.
         """
@@ -36,6 +73,7 @@ class SymptomDiseaseModel:
         # Process input symptoms
         symptoms_normalized = [symptom.strip().lower() for symptom in symptoms_list]
         unrecognized_symptoms = []
+         # Update the input vector for each recognized symptom
         for symptom in symptoms_normalized:
             if symptom in symptom_mapping:
                 idx = self.all_symptoms.index(symptom_mapping[symptom])

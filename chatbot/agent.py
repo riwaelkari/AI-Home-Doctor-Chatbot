@@ -11,23 +11,80 @@ from .utils import model_selector
 logger = logging.getLogger(__name__)
 
 class Agent:
+    """
+    A class that manages conversation chains, interacts with OpenAI's GPT model for text translation, 
+    and provides functionality for chatbot-based tasks.
+
+    This class is designed to handle a variety of conversational states and processes, including:
+    - Storing and managing conversation chains.
+    - Handling user input and switching between conversation chains.
+    - Using OpenAI's GPT-3.5-turbo model to translate text between languages.
+    
+    Attributes:
+        chains (dict): A dictionary that stores different conversation chains or interaction contexts.
+        default_chain (Optional[BaseChain]): The default conversation chain to be used when no other chain is active.
+        awaiting_input (Optional[str]): A placeholder that tracks if the bot is awaiting user input.
+        current_chain (Optional[BaseChain]): The current active conversation chain.
+        current_chain_name (str): The name of the current conversation chain (default is 'Nurse').
+        translation_llm (ChatOpenAI): The language model used to translate text between languages.
+    
+    Methods:
+        __init__: Initializes the class with default values for conversation management and sets up
+                  the OpenAI language model for text translation.
+    """
     def __init__(self):
-        self.chains = {}
-        self.default_chain = None
-        self.awaiting_input = None
-        self.current_chain = None
-        self.current_chain_name = 'Nurse'  # Initialize bot name
-        openai_api_key = os.getenv('SECRET_TOKEN')
-        # Initialize the LLM for translation
+        """
+        Initializes the class with default values for conversation management and sets up
+        the OpenAI language model (GPT-3.5-turbo) for text translation.
+        
+        This constructor sets up necessary variables for tracking conversation chains,
+        and initializes a translation model using OpenAI's GPT-3.5-turbo with an API key fetched
+        from the environment variable 'SECRET_TOKEN'.
+        
+        Attributes initialized:
+            chains: An empty dictionary to store conversation chains.
+            default_chain: Set to None, as no default chain is specified initially.
+            awaiting_input: Set to None, used to check if the bot is waiting for user input.
+            current_chain: Set to None, used to track the current active conversation chain.
+            current_chain_name: Set to 'Nurse' by default, representing the current bot's name.
+            translation_llm: Initialized with ChatOpenAI for translation purposes, using GPT-3.5-turbo.
+        
+        Raises:
+            KeyError: If the 'SECRET_TOKEN' environment variable is not found.
+        """
+        self.chains = {}   # Dictionary to store different chains of conversation or interactions.
+        self.default_chain = None  # Placeholder for the default conversation chain.
+        self.awaiting_input = None  # Placeholder for tracking whether the system is awaiting user input.
+        self.current_chain = None # Placeholder for the current active chain of conversation.
+        self.current_chain_name = 'Nurse'  # Initialize bot name to 'Nurse' by default.
+        openai_api_key = os.getenv('SECRET_TOKEN') # Retrieves the OpenAI API key from the environment variables.
+        # Initialize the LLM for translation 
         self.translation_llm = ChatOpenAI(
-        temperature=0.7,
-        model_name="gpt-3.5-turbo",  # Replace with your desired model
-        openai_api_key=openai_api_key
+        temperature=0.7,  # The temperature parameter controls the randomness of the model's output.
+        model_name="gpt-3.5-turbo",  # Specifies the model used for translation (GPT-3.5 turbo)
+        openai_api_key=openai_api_key # Provides the API key for OpenAI's service.
     )
 
     def translate_text(self, text: str, target_language: str) -> str:
+        """
+        Translates the provided text into the specified target language using OpenAI's GPT-3.5-turbo model.
+        
+        This method constructs a prompt instructing the model to translate the given text to the target language
+        and returns the translated content. The model is used with a temperature setting of 0.7 to control
+        the randomness of the output.
+        
+        Args:
+            text (str): The input text that needs to be translated.
+            target_language (str): The language to which the text should be translated.
+        
+        Returns:
+            str: The translated version of the input text.
+        """
+         # Constructs the prompt to instruct the translation model.
         prompt = f"Translate the following text to {target_language}:\n\n{text}"
+         # Uses the LLM to generate the translation.
         translation = self.translation_llm(prompt)
+        # Returns the translated text, stripping any leading/trailing whitespace.
         return translation.content.strip()
 
 

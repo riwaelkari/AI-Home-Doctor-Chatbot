@@ -14,8 +14,24 @@ from torch import nn, optim
 import json
 import os
 from pathlib import Path
-
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning, module="torch")
 def setup_dataset(data_dir):
+    """
+    Set up the dataset directory and load the class mapping for skin diseases.
+
+    This function checks whether the specified dataset directory exists and raises an 
+    error if not. It also defines a mapping of class indices to skin disease names, 
+    which will be used during model training and evaluation.
+
+    Args:
+        data_dir (str): The directory where the dataset is stored.
+ Raises:
+        FileNotFoundError: If the dataset directory does not exist.
+
+    Returns:
+        dict: A dictionary mapping class indices (strings) to skin disease names.
+    """
     # Define dataset directory
     MYDATA_DIR = Path(data_dir)
 

@@ -3,6 +3,7 @@
 from langchain.prompts import PromptTemplate
 from .base_chains import BaseChain
 from ..utils import query_refiner_models, guard_base
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -76,24 +77,30 @@ class BaseModelChain(BaseChain):
         Returns:
             dict: The response from the chain.
         """
-        guard_response = guard_base(user_input)
+        guard_response = guard_base(user_input) #apply guard rails here
         if (guard_response == 'allowed'):
+             # Define the list of available models
             listofmodels = "Symptom Disease Doctor, Skin Disease Doctor, Donna"
             query = query_refiner_models(user_input, listofmodels)
             print(query)
+            # Check if the user has provided an image path 
             if image_path:
                 response = "This Doctor does not support images, please either choose a doctor that does, or refrain from attaching images."
                 return {"response": response}
+             # If the query contains the word "description" (likely asking for more information about symptoms or diagnosis)
             elif "description" in query.lower():
                 response = self.llm.invoke(
                     self.get_describe_prompt.format(user_input=query)
                 )
             else:
+                # If the query is not asking for a description, use the main prompt for general response
                 response = self.llm.invoke(
                     self.get_main_prompt.format(
                         conversation_history=conversation
                     )
                 )
-            return {"response": response.content}
+            return {"response": response.content}  # Return the model's response to the user as a dictionary
+    
         else:
+             # If the guard response is not 'allowed', return the guard's response
             return {"response": guard_response}

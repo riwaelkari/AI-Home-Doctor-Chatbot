@@ -48,6 +48,21 @@ def decode_prediction(prediction, classes):
 openai.api_key = os.getenv('SECRET_TOKEN')
 
 def query_refiner(query, disease):
+    """
+    Refines a user's query related to a specific disease, formulating a more targeted question 
+    based on keywords like 'description', 'precautions', or 'severity'. 
+
+    If the user's query includes any of these keywords, the function generates a refined question 
+    about the disease in the appropriate format. If the query doesn't include any relevant keywords, 
+    it returns an empty string.
+
+    Args:
+        query (str): The user's original query, which may contain the keywords 'description', 'precautions', or 'severity'.
+        disease (str): The name of the disease for which the question will be generated.
+
+    Returns:
+        str: A refined question based on the user's query, or an empty string if no relevant keywords are found.
+"""
     response = openai.chat.completions.create(
         model="gpt-3.5-turbo",  # Ensure this is the desired model
         messages=[
@@ -93,6 +108,19 @@ Refined Query:"""
         return output
 
 def model_selector(conversation):
+    """
+    Analyzes a conversation and determines the user's intent to select a specific model or expert 
+    (e.g., Symptom disease doctor, Skin disease doctor, or Secretary). This function identifies 
+    if the user is trying to interact with one of the predefined models based on the conversation context.
+
+    Args:
+        conversation (list): A list of messages that make up the ongoing conversation. Each message 
+                              contains a role (system, user, assistant) and content.
+
+    Returns:
+        str: The name of the selected model (e.g., "Model 1, Symptom disease doctor", "Model 2, Skin disease doctor", 
+             or "Model 3, Donna the secretary").
+"""
     response = openai.chat.completions.create(
         model="gpt-3.5-turbo",  # Change to "gpt-4" if preferred
         messages=[
@@ -101,10 +129,10 @@ def model_selector(conversation):
                 "content": """
 Based on the conversation, determine if the user is trying to choose on of the following models/doctors/secretary:
 1. Model 1, Symptom disease doctor
-2. Model2, Skin disease doctor
+2. Model 2, Skin disease doctor
 3. Model 3, Donna the secretary
-
-Return the ONLY number of the model (1,2, or 3) as output if the user wants to choose, otherwise return NOTHING.
+return NOTHING if the patient mentions some symptoms, but keep in mind that you have to return 1 IF the patient mentions the symptom disease doctor.
+ Return the ONLY number of the model (1,2, or 3) as output if the user wants to choose, otherwise return NOTHING.
 """
             },
             {
@@ -134,6 +162,23 @@ Conversation:
 
 
 def query_refiner_severity(conversation, query):
+    """
+    Refines a user's query related to symptoms mentioned in the conversation by generating questions 
+    specifically asking for the severity of each symptom. If no symptoms are found in the conversation, 
+    the function responds with "NO OUTPUT".
+
+    This function analyzes the most recent user message, identifies any symptoms, and generates a list of 
+    questions asking about the severity of each symptom.
+
+    Args:
+        conversation (list): A list of messages that make up the ongoing conversation, where each message 
+                              contains a role (system, user, assistant) and the content of the message.
+        query (str): The user's query asking for the severity of symptoms.
+
+    Returns:
+        list: A list of strings where each string is a question about the severity of a symptom, or an empty 
+              list if no symptoms are mentioned.
+"""
     response = openai.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
@@ -184,6 +229,23 @@ Refined Questions:"""
         return questions
 
 def query_refiner_models(query, list_of_models):
+    """
+    Refines a user's query by generating questions requesting the descriptions of specific models from a 
+    provided list of models. If the user's query explicitly requests descriptions, the function generates 
+    a question for each model in the list. If the query is not related to model descriptions, the function 
+    generates nothing.
+
+    This function analyzes the user's query to determine if they are asking for descriptions of any models 
+    and formulates appropriate questions based on the provided list of models.
+
+    Args:
+        query (str): The user's query asking for descriptions of models.
+        list_of_models (list): A list of models for which the descriptions may be requested. Each model is a string.
+
+    Returns:
+        list: A list of strings where each string is a question asking for the description of a model, or an empty 
+              list if the query does not request model descriptions.
+"""
     response = openai.chat.completions.create(
         model="gpt-3.5-turbo",  # Ensure this is the desired model
         messages=[
@@ -327,7 +389,7 @@ Refined Query:"""
     output = response.choices[0].message.content.strip()
 
     return output
-def guard_base_symptom(query):
+def guard_symptom(query):
     response = openai.chat.completions.create(
         model="gpt-4o-mini",  # Ensure this is the desired model
         messages=[
@@ -336,7 +398,7 @@ def guard_base_symptom(query):
                 "content": f""" 
 
  You are a helpful assistant responsible for determining if the user's query falls under allowed topics:
-   - Normal conversation starters.
+   - Normal conversation starters  like saying hi and stuff like that  and how are you feeling blabla and saying bye.
    -Normal doctor patient interactions
    -Normal what the person is feeling in terms of wellness physical and anything that has symptoms 
 - Medical questions related to symptoms or diseases, including:
@@ -345,6 +407,11 @@ def guard_base_symptom(query):
   - Severity and progression
   - Causes and risk factors
   - Prognosis and outcomes
+  Instructions:
+
+- If the query is allowed, respond with `'allowed'` only.
+- If the query is not allowed, politely inform the user that you can only assist with medical symptom-related inquiries  .
+
 -
                 """
             },
@@ -366,21 +433,27 @@ Refined Query:"""
     output = response.choices[0].message.content.strip()
 
     return output
-def guard_base_skin(query):
+def guard_skin(query):
     response = openai.chat.completions.create(
         model="gpt-4o-mini",  # Ensure this is the desired model
         messages=[
             {
                 "role": "system", 
                 "content": f""" 
-            You are a helpful assistant responsible for determining if the user's query falls under allowed topics:
-   - Normal conversation starters.
+    You are a helpful assistant responsible for determining if the user's query falls under allowed topics:
+   - Normal conversation starters like hi and stuff like that and how are you feeling blabla and saying bye.
    -Normal doctor patient interactions
    -Attach or picture  of skin  disease related inqueries
    -Normal what the person is feeling in terms of wellness physical and anything that has skin stuff 
 - Medical questions related to skin diseases and infections, including:
-  - A picture of it 
-  - what it is
+  - A picture ofthe skin infection or disease
+  - what the skin disease or infection is based on the photo
+-usual answering words like yes, no, etc...
+  Instructions:
+
+- If the query is allowed, respond with `'allowed'` only.
+- If the query is not allowed, politely inform the user that you can only assist with medical skin-related inquiries  .
+
 -
  """
             },
@@ -402,7 +475,7 @@ Refined Query:"""
     output = response.choices[0].message.content.strip()
 
     return output
-def guard_base_donna(query):
+def guard_donna(query):
     response = openai.chat.completions.create(
         model="gpt-4o-mini",  # Ensure this is the desired model
         messages=[
@@ -412,7 +485,10 @@ def guard_base_donna(query):
             You are a helpful assistant responsible for determining if the user's query falls under allowed topics.
 
 Allowed Topics:
-- Normal conversation starters.
+   - Normal conversation starters like hi and stuff like that and how are you feeling blabla and saying bye.
+   - saying who you are where  you start the convo with this 
+   -Normal secretary reminder  patient interactions
+-usual answering words 
 - Requests to remind or schedule taking medications, can also mention the remind via email  or anything to do with timing reminders .
   - This includes reminding the user about specific medications, scheduling reminders, or answering general questions related to medications (e.g., dosage, timing).
   

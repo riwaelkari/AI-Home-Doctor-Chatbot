@@ -11,6 +11,20 @@ from langchain_openai import OpenAIEmbeddings
 
 
 def load_data():
+    """
+    Loads the dataset files from specified paths.
+
+    This function reads multiple CSV files containing disease and symptom data, including 
+    disease-symptom relationships, symptom descriptions, precautions, severity levels, 
+    and test data. The data is returned as Pandas DataFrames.
+Returns:
+        tuple: A tuple containing the following DataFrames:
+            - symptom_df: Disease-Symptom mapping for training data
+            - description_df: Descriptions of symptoms
+            - precaution_df: Precautions for each symptom
+            - severity_df: Severity levels of symptoms
+            - testing_symptoms_df: Disease-Symptom mapping for test data
+    """
     # Adjust the paths based on your directory structure
     symptom_df = pd.read_csv('dataset/disease_symptoms_train.csv')
     description_df = pd.read_csv('dataset/symptom_Description.csv')
@@ -21,14 +35,35 @@ def load_data():
 
 
 def preprocess_data(symptom_df, testing_symptoms):
+    """
+    Preprocesses the symptom data by encoding categorical labels.
+
+    This function takes the training and testing symptom data, and applies a label encoder 
+    to convert the categorical prognosis labels (disease names) into numeric values for 
+    machine learning purposes. The function also returns the list of encoded symptom classes 
+    and other relevant preprocessing details.
+ Args:
+        symptom_df (DataFrame): DataFrame containing the training data with symptoms and prognosis.
+        testing_symptoms (DataFrame): DataFrame containing the test data with symptoms and prognosis.
+
+    Returns:
+        tuple: A tuple containing:
+            - training_data_cleaned: Preprocessed training data with encoded prognosis labels.
+            - testing_data_cleaned: Preprocessed test data with encoded prognosis labels.
+            - classes: List of unique disease labels after encoding.
+            - all_symptoms: List of all possible symptom names in the dataset.
+    """
+     # Initialize the label encoder
     label_encoder = LabelEncoder()
+    # Create a copy of the symptom data to avoid modifying the original DataFrame
     training_data_cleaned = symptom_df.copy()  # Use copy to avoid SettingWithCopyWarning
     training_data_cleaned['prognosis_encoded'] = label_encoder.fit_transform(training_data_cleaned['prognosis'])
-
+    # Preprocess the test data in the same way as the training data
     testing_data_cleaned = testing_symptoms.copy()
     testing_data_cleaned['prognosis_encoded'] = label_encoder.fit_transform(testing_data_cleaned['prognosis'])
-    
+    # Get the list of encoded classes (diseases)
     classes = label_encoder.classes_.tolist()
+     # List of all possible symptoms in the dataset (can be used for feature extraction)
     all_symptoms = [
     'itching', 'skin_rash', 'nodal_skin_eruptions', 'continuous_sneezing', 'shivering', 'chills',
     'joint_pain', 'stomach_pain', 'acidity', 'ulcers_on_tongue', 'muscle_wasting', 'vomiting',
