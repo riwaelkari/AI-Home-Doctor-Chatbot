@@ -53,7 +53,7 @@ class Agent:
             KeyError: If the 'SECRET_TOKEN' environment variable is not found.
         """
         self.chains = {}   # Dictionary to store different chains of conversation or interactions.
-        self.default_chain = None  # Placeholder for the default conversation chain.
+        self.default_chain = 'Nurse'  # Placeholder for the default conversation chain.
         self.awaiting_input = None  # Placeholder for tracking whether the system is awaiting user input.
         self.current_chain = None # Placeholder for the current active chain of conversation.
         self.current_chain_name = 'Nurse'  # Initialize bot name to 'Nurse' by default.

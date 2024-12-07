@@ -12,8 +12,9 @@ sentence-transformers
 langchain-huggingface
 joblib
 guardrails-ai
-torch
-torchvision
+torch==2.4.1+cpu
+torchvision==0.19.1+cpu
 flask-cors
 dateparser
 Pillow
+matplotlib

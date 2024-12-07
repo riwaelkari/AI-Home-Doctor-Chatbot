@@ -1,10 +1,11 @@
 import whisper
 import logging
 import os
-
+import warnings
 # Configure logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+warnings.filterwarnings("ignore", category=FutureWarning, module="torch")
 
 class SpeechToTextModel:
     """
