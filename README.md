@@ -88,30 +88,27 @@ Before you begin, ensure you have the following installed on your system:
    venv\Scripts\activate # For windows
    ```
 
-3. **Install Dependencies**
-
-   ```
-   pip install --upgrade pip
-   pip install -r requirements.txt
-   ```
-
-### Configuration
+### Configuration and Running
 
 1. **Add Environment Variables**
 
-Create a `.env` file in the root directory and add the following neseccary environmental variables:
+In Your Docker Image fill the folllowing:
 
    ```
-   SECRET_TOKEN = '' # Your OpenAI API Key 
-   GMAIL_PASS = '' # Password of the account used to send reminders
-   GMAIL_USER = '' # email of the account used to send reminders
+   ENV SECRET_TOKEN = '' # Your OpenAI API Key 
+   ENV GMAIL_PASS = '' # Password of the account used to send reminders
+   ENV GMAIL_USER = '' # email of the account used to send reminders
    ```
 
-## Run the Application
+2. **Run a Docker Image**
 
-1. **Start the Flask server**
+In the directory that has the Dockerfile, run the following:
+   ```
+   docker build -t chatbot-home-doctor .
+   ```
+3. **Starting the Flask server**
 
-Open a terminal in the root repository and run the following:
+THe Dockerfile opens a terminal in the root repository and run the following:
 
    ```
    python -m server.server

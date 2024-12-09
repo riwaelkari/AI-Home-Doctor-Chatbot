@@ -122,7 +122,7 @@ def model_selector(conversation):
              or "Model 3, Donna the secretary").
 """
     response = openai.chat.completions.create(
-        model="gpt-3.5-turbo",  # Change to "gpt-4" if preferred
+        model="gpt-4o-mini",  # Change to "gpt-4" if preferred
         messages=[
             {
                 "role": "system",
@@ -131,7 +131,8 @@ Based on the conversation, determine if the user is trying to choose on of the f
 1. Model 1, Symptom disease doctor
 2. Model 2, Skin disease doctor
 3. Model 3, Donna the secretary
-return NOTHING if the patient mentions some symptoms, but keep in mind that you have to return 1 IF the patient mentions the symptom disease doctor.
+If the user mentions a potential skin-related issue, first ask them if they have a picture or image of the skin disease. If they respond that they do not have a picture, suggest (do not immediately proceed) for the user consulting the symptom disease doctor for further assistance. Ensure to confirm their decision before proceeding to the symptom disease doctor, make sure they say yes or something like that to go to symptom disease do not take him to it withou
+reting sure he want to go.urn NOTHING if the patient mentions some symptoms, but keep in mind that you have to return 1 IF tmakhe patient mentions the symptom disease doctor.
  Return the ONLY number of the model (1,2, or 3) as output if the user wants to choose, otherwise return NOTHING.
 """
             },
@@ -349,17 +350,20 @@ def guard_base(query):
                 "role": "system", 
                 "content": f""" 
             You are a helpful assistant responsible for determining if the user's query falls under allowed topics: normal conversation starters, or requests to delegate to doctors, or explanation or inqueries of what each doctor or secretary does who is donna, meaning, if the user talks about anything related to donna the secretary or the skin or symptom disease doctor, it asks normally but if it asks anything about something very far from its functionality, then it doesnt work. 
-            if he asks you what you do also answer normally. 
+            if he asks you what you do also answer normally.  if he gives you a potential skin disease then ASK him if he has picture if not then ASK HIM if he wants to go to symptom disease doc
               just if the topic is way off topic meaning then dont asnwer
              Normal conversation starters.
 - Requests to delegate to doctors.
+- user can call you anything that is not offensive
+-he can geet inquires relati
 - Explanations or inquiries about what each doctor or secretary does or in other words what your resources do.
 - Questions or discussions related to Donna, the secretary.
 - Questions or discussions related to the skin or symptom disease doctor.
 - Questions about what you (the assistant) do.
 -If anything of the above have synonyms also answer normally.
-
-In other words, if the user talks about anything related to Donna, the secretary, or the skin or symptom disease doctor, you should respond normally.
+-IfIf the user says any syptoms, answer normally.
+-If he feels something, answer normally.
+If the user mentions a potential skin-related issue, first ask them if they have a picture or image of the skin disease. If they respond that they do not have a picture, suggest (do not immediately proceed) for the user consulting the symptom disease doctor for further assistance. Ensure to confirm their decision before proceeding to the symptom disease doctor, make sure they say yes or something like that to go to symptom disease do not take him to it without making sure he want to go.In other words, if the user talks about anything related to Donna, the secretary, or the skin or symptom disease doctor, you should respond normally.
 
 If the user asks what you do, you should also answer normally.
 
@@ -400,13 +404,17 @@ def guard_symptom(query):
  You are a helpful assistant responsible for determining if the user's query falls under allowed topics:
    - Normal conversation starters  like saying hi and stuff like that  and how are you feeling blabla and saying bye.
    -Normal doctor patient interactions
+   -if he says he feels sick  or any discomfort you respond normally also like the nurse you are 
+   -if he says yes no or please it is normal ayou are allowed to answer
    -Normal what the person is feeling in terms of wellness physical and anything that has symptoms 
 - Medical questions related to symptoms or diseases, including:
-  - Their descriptions
-  - Precautions and prevention
+  - Their descriptions, and if they say describe or any synonym of describe you allow you answer normally
+  - Precautions and prevention and if they say how to prevent of any thing that points to precautions or prevention, you answer normally
   - Severity and progression
   - Causes and risk factors
   - Prognosis and outcomes
+  - If the user's query includes any of the words "description", "precautions", or "severity", generate a question in the format:
+- if user says he  wants to talk to you, symptom disease doctor, you answer normally
   Instructions:
 
 - If the query is allowed, respond with `'allowed'` only.
@@ -441,14 +449,16 @@ def guard_skin(query):
                 "role": "system", 
                 "content": f""" 
     You are a helpful assistant responsible for determining if the user's query falls under allowed topics:
+   - if user says he  wants to talk to you, skin diseases doctor, you answer normally
    - Normal conversation starters like hi and stuff like that and how are you feeling blabla and saying bye.
-   -Normal doctor patient interactions
-   -Attach or picture  of skin  disease related inqueries
+   -Normal doctor patient interactions\
+   -Attach or picture or image of skin  disease related inqueries
    -Normal what the person is feeling in terms of wellness physical and anything that has skin stuff 
 - Medical questions related to skin diseases and infections, including:
   - A picture ofthe skin infection or disease
   - what the skin disease or infection is based on the photo
 -usual answering words like yes, no, etc...
+-if he says yes or no or something like that you also answer normally
   Instructions:
 
 - If the query is allowed, respond with `'allowed'` only.
@@ -485,13 +495,16 @@ def guard_donna(query):
             You are a helpful assistant responsible for determining if the user's query falls under allowed topics.
 
 Allowed Topics:
+- if user says he  wants to talk to you, donna, you answer normally
    - Normal conversation starters like hi and stuff like that and how are you feeling blabla and saying bye.
    - saying who you are where  you start the convo with this 
    -Normal secretary reminder  patient interactions
 -usual answering words 
 - Requests to remind or schedule taking medications, can also mention the remind via email  or anything to do with timing reminders .
   - This includes reminding the user about specific medications, scheduling reminders, or answering general questions related to medications (e.g., dosage, timing).
-  
+  -if he says bye or something like that you also answer normally
+  -if he says yes or no or something like that you also answer normally
+  -if he verifies the information you said you also answer normally
 Instructions:
 - If the query is allowed, respond with `'allowed'` only.
 - If the query is not allowed, politely inform the user that you can only assist with reminding or scheduling reminders to take medication.
