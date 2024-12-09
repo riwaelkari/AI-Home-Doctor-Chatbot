@@ -26,7 +26,7 @@ A chatbot application that provides medical assistance and advice.
 - **Conversational Interface**: Interactive chatbot powered by LangChain for seamless user experience.
 - **Image and Audio Support**: Accepts and processes images and audio files for comprehensive assistance.
 - **Bilingual Support**: Accepts both English and Arabic.
-- **Query refinment**: Uses query refiners to make sure the chatbot gets the right user input.
+- **Query refinement**: Uses query refiners to make sure the chatbot gets the right user input.
 - **Gaurdrail Support**: Utilizes Guards to protect the user from unintended chatbot answers.
 
 ## Datasets
@@ -55,7 +55,7 @@ This project utilizes the following datasets:
 - `frontend\`: Contains the frontend codes of the Flask server including html, css, and js.
 - `saved_models\`: Contains the checkpoint file for skin disease and knn model.
 - `server\`: Contains the Flask server setup and setup for all the chains.
-- `uploads\`: Folder to contain recieved images and audios.
+- `uploads\`: Folder to contain received images and audios.
 - `Dockerfile`: For containerizing the application.
 - `requirements.txt`: Python dependencies.
 
@@ -70,7 +70,7 @@ Before you begin, ensure you have the following installed on your system:
 - **Python 3.8 or higher**: [Download Python](https://www.python.org/downloads/)
 - **Docker** (optional, for containerization): [Download Docker](https://www.docker.com/get-started)
 - **Git**: [Download Git](https://git-scm.com/downloads)
-- **Kaggle Account** (optional, to visualize the datsets used): To download the datasets.
+- **Kaggle Account** (optional, to visualize the daatsets used): To download the datasets.
 
 ### Installation
 
@@ -92,7 +92,7 @@ Before you begin, ensure you have the following installed on your system:
 
 1. **Add Environment Variables**
 
-In Your Docker Image fill the folllowing:
+In Your Docker Image fill the following:
 
    ```
    ENV SECRET_TOKEN = '' # Your OpenAI API Key 
