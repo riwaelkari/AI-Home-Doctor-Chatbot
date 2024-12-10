@@ -65,6 +65,18 @@ let messages = [
     { role: "bot", content: "Hello! How can I assist you today?"+"\n"+" مرحبًا! كيف يمكنني مساعدتك اليوم؟", bot_name: currentBotName, bot_icon: currentBotIcon }
 ];
 
+// Function to sanitize user input to prevent XSS
+function sanitize(str) {
+    const temp = document.createElement('div');
+    temp.textContent = str;
+    return temp.innerHTML;
+}
+
+// Added function to format markdown bold text
+function formatMarkdown(str) {
+    return str.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+}
+
 // Function to render messages
 function renderMessages() {
     chatDisplay.innerHTML = ''; // Clear current messages
@@ -81,7 +93,7 @@ function renderMessages() {
             let messageContent = "";
 
             if (message.content && message.content.trim() !== "") {
-                messageContent += `<span class="sender-label">You:</span> <span class="message-text">${sanitize(message.content)}</span>`;
+                messageContent += `<span class="sender-label">You:</span> <span class="message-text">${formatMarkdown(sanitize(message.content))}</span>`;
             }
 
             if (message.imageData) {
@@ -120,8 +132,9 @@ function renderMessages() {
             chatContent.className = 'chat-content bot-bubble chat-bubble';
 
             const botName = message.bot_name || 'Doctor';
-
-            chatContent.innerHTML = `<span class="sender-label">${sanitize(botName)}:</span> <span class="message-text">${sanitize(message.content).replace(/\n/g, '<br>')}</span>`;
+            currentBotName =botName
+            currentBotIcon = botIcon.src
+            chatContent.innerHTML = `<span class="sender-label">${sanitize(botName)}:</span> <span class="message-text">${formatMarkdown(sanitize(message.content)).replace(/\n/g, '<br>')}</span>`;
 
             botContainer.appendChild(botIcon);
             botContainer.appendChild(chatContent);
@@ -144,7 +157,7 @@ function renderDiagnosingMessages() {
             const chatContent = document.createElement('div');
             chatContent.className = 'chat-content user-bubble chat-bubble';
 
-            let messageContent = `<span class="sender-label">You:</span> <span>${sanitize(message.content)}</span>`;
+            let messageContent = `<span class="sender-label">You:</span> <span>${formatMarkdown(sanitize(message.content))}</span>`;
 
             if (message.imageData) {
                 messageContent += `<br><img src="${message.imageData}" alt="Attached Image" class="image-attachment">`;
@@ -175,8 +188,7 @@ function renderDiagnosingMessages() {
             chatContent.className = 'chat-content bot-bubble chat-bubble';
 
             const botName = message.bot_name || 'Doctor';
-// Inside renderMessages function
-            chatContent.innerHTML = `<span class="sender-label">${sanitize(botName)}:</span> <span>${sanitize(message.content).replace(/\n/g, '<br>')}</span>`;
+            chatContent.innerHTML = `<span class="sender-label">${sanitize(botName)}:</span> <span>${formatMarkdown(sanitize(message.content)).replace(/\n/g, '<br>')}</span>`;
 
             botContainer.appendChild(botIcon);
             botContainer.appendChild(chatContent);
@@ -186,12 +198,6 @@ function renderDiagnosingMessages() {
 
     // Automatically scroll to the bottom after rendering messages
     scrollToBottom();
-}
-// Function to sanitize user input to prevent XSS
-function sanitize(str) {
-    const temp = document.createElement('div');
-    temp.textContent = str;
-    return temp.innerHTML;
 }
 
 // Function to send user message using Fetch API
@@ -249,8 +255,6 @@ async function sendMessage() {
         const response = await fetch(API_CHAT_URL, {
             method: 'POST',
             body: formData
-            // Note: Do NOT set the 'Content-Type' header when sending FormData
-            // The browser will automatically set it, including the boundary
         });
 
         if (response.ok) {
@@ -259,16 +263,12 @@ async function sendMessage() {
             const botName = data.bot_name || "Doctor";
             const botIconUrl = data.bot_icon;
 
-            // Update current bot name and icon
-            currentBotName = botName;
-            currentBotIcon = botIconUrl;
-            console.log("Current Bot Icon:", currentBotIcon);
             // Stop the "Diagnosing..." animation
             stopDiagnosingAnimation();
 
             // Remove the "Diagnosing..." message
             messages.pop();
-
+            console.log(currentBotName)
             // Append the actual response
             messages.push({
                 role: "bot",
@@ -329,6 +329,7 @@ async function sendMessage() {
 // Function to start "Diagnosing..." live animation
 function showDiagnosingAnimation() {
     let dots = 0;
+    console.log(currentBotName)
     const diagnosingMessage = {
         role: "bot",
         content: "Diagnosing...",
@@ -369,6 +370,7 @@ sendButton.addEventListener('click', function() {
     console.log('Send button clicked'); // Debugging
     sendMessage();
 });
+
 // Event listener for reset button
 resetButton.addEventListener('click', function() {
     resetChatbot();
@@ -416,6 +418,7 @@ fileInput.addEventListener('change', function () {
     if (fileInput.files.length > 0) {
         attachedFile = fileInput.files[0];
         console.log(`File selected: ${attachedFile.name}`); // Debugging
+        
         showFileAttachedIndicator(attachedFile.name);
 
         // Show the image name box with the file name
@@ -722,16 +725,12 @@ function sendAudio(audioBlob) {
     console.log('Sending audio to server...');
 
     // Append user message to chat display with audio player
-    // Append user message to chat display with audio player
     const audioURL = URL.createObjectURL(audioBlob);
     messages.push({ role: "user", content: "", audioData: audioURL });
     renderMessages(); // Render messages once
 
-// Show "Diagnosing..." animation
+    // Show "Diagnosing..." animation
     showDiagnosingAnimation();
-
-// ... rest of your existing code ...
-
 
     // Create FormData
     let formData = new FormData();
@@ -754,7 +753,6 @@ function sendAudio(audioBlob) {
         // Remove "Diagnosing..." message
         messages.pop();
 
-        
 
         // Append bot response
         messages.push({

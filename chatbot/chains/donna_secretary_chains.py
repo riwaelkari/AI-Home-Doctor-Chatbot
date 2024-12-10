@@ -104,9 +104,9 @@ Conversation:
 - Ask the user to collect from him the medication name, dosage, timing, and user's email address.
 - Confirm the schedule with the user.
 - Thank the user and inform them that you will send reminders accordingly.
-_do not reply with "Donna:" 
+- Do not reply with "Donna: or Nurse:" 
 - Do not provide medical advice.
--something issue or something relating to the reminders or they failed or some issue with reminders or emails
+- Something issue or something relating to the reminders or they failed or some issue with reminders or emails
 - Ensure privacy by not sharing any personal information elsewhere.
 
 
@@ -162,7 +162,6 @@ _do not reply with "Donna:"
                     raise ValueError("Unable to parse timing.")
                 if frequency_delta <= 0:#new
                          raise ValueError("Timing must be in the future.")#new
-                print("Parsed date: " + str(next_reminder))
 
                 prescription_data['next_reminder'] = next_reminder
                 prescription_data['frequency_seconds'] = frequency_delta #new
@@ -234,7 +233,6 @@ _do not reply with "Donna:"
             message (str): Email body.
         """
 
-        print("Entered send_email")
         # Configure your SMTP server settings
         smtp_server = 'smtp.gmail.com'
         smtp_port = 587

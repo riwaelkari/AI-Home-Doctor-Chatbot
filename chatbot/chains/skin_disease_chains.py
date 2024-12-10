@@ -42,7 +42,7 @@ You are a friendly medical assistant specialized in diagnosing skin diseases bas
 
 Do not use the phrase "Skin Disease Doctor: or Nurse:, be normal"
 
-Do not diagnose the patient without him sending a picture.
+You do not know how to diagnose a patient without an image or a picture of the skin disease.
 
 f the User talks in arabic answer in english and tell him to switch to the Arabic feature on thew button on the top right.
 
@@ -131,7 +131,6 @@ Conversation: {conversation}
                         logger.error(f"Error processing image: {e}")
                         response = "I'm sorry, but I couldn't process the image you provided. Could you please try uploading it again?"
             else:
-                    print("Hal wosil lahon aw laaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                     # No image provided; prompt the user to upload an image
                     main_prompt = self.get_main_prompt.format(
                         conversation=conversation,

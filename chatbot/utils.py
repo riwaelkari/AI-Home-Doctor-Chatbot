@@ -122,27 +122,32 @@ def model_selector(conversation):
              or "Model 3, Donna the secretary").
 """
     response = openai.chat.completions.create(
-        model="gpt-4o-mini",  # Change to "gpt-4" if preferred
+        model="gpt-4o",  # Change to "gpt-4" if preferred
         messages=[
             {
                 "role": "system",
-                "content": """
-Based on the conversation, determine if the user is trying to choose on of the following models/doctors/secretary:
-1. Model 1, Symptom disease doctor
-2. Model 2, Skin disease doctor
-3. Model 3, Donna the secretary
-If the user asks you to describe a model or what a certain model does, you answer and ask them if they want to go there before actually taking them there.
-If the user mentions a potential skin-related issue, first ask them if they have a picture or image of the skin disease as a nurse. If they respond that they do not have a picture, suggest (do not immediately proceed) for the user consulting the symptom disease doctor for further assistance. Ensure to confirm their decision before proceeding to the symptom disease doctor, make sure they say yes or something like that to go to symptom disease do not take him to it withou
-reting sure he want to go.urn NOTHING if the patient mentions some symptoms, but keep in mind that you have to return 1 IF tmakhe patient mentions the symptom disease doctor.
- Return the ONLY number of the model (1,2, or 3) as output if the user wants to choose, otherwise return NOTHING.
-"""
-            },
-            {
-                "role": "user",
-                "content": f"""
-Conversation:
-{conversation}
-"""
+                "content":    f"""
+    Analyzes a conversation and determines if the user wants to select a specific model:
+    1: Symptom disease doctor
+    2: Skin disease doctor
+    3: Donna the secretary
+
+    Desired Logic:
+    - If the user explicitly or clearly agrees to proceed to or chooses the "Symptom disease doctor", return "1".
+    - If the user explicitly or clearly agrees to proceed to or chooses  the "Skin disease doctor", return "2".
+    - If the user explicitly or clearly agrees to proceed to or chooses the "Donna the secretary", return "3".
+    - If the user only inquires about what a model does, or mentions symptoms or conditions without clearly agreeing to proceed, return "NOTHING".
+    - If the user mentions a skin issue, the assistant (nurse) should ask if they have a picture. If the user does not have one, the nurse should suggest consulting the Symptom disease doctor (Model 1) but not select it yet. If the user then says "Yes" or clearly agrees to go to that doctor, return "1".
+    - Similar logic applies if the user discusses models but doesn't explicitly agree. Only return a model number after clear user agreement.
+    -If the user says that  he want to scheduele a reminder or anythin related to reminding or remidning for medicine, you suggest to go to donna
+    The model should interpret user intentions in a slightly flexible manner:
+    - "Yes, let's talk to the symptom disease doctor" or "Sure, connect me to the Symptom disease doctor" or "Okay, I'll go to the Symptom disease doctor" are all confirmations.
+    - If no clear confirmation is given, return "NOTHING".
+
+    NOTE: The final answer from the model must be a single token: "1", "2", "3", or "NOTHING".
+
+    Conversation: {conversation}
+    """
             }
         ],
         temperature=0,  # For deterministic responses
@@ -153,7 +158,6 @@ Conversation:
     )
     
     output = response.choices[0].message.content.strip()
-    
     if output == "NOTHING":
         return ""
     elif output in {"1", "2", "3"}:

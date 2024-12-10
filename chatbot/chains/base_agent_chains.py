@@ -82,7 +82,6 @@ class BaseModelChain(BaseChain):
              # Define the list of available models
             listofmodels = "Symptom Disease Doctor, Skin Disease Doctor, Donna"
             query = query_refiner_models(user_input, listofmodels)
-            print(query)
             # Check if the user has provided an image path 
             if image_path:
                 response = "This Doctor does not support images, please either choose a doctor that does, or refrain from attaching images."

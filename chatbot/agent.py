@@ -136,25 +136,21 @@ class Agent:
             BaseChain: The selected chain based on the input.
         """
         determine = model_selector(conversation)
-        print(determine)
         # Check if the user is selecting a chain
         if determine == 1:
             self.current_chain = self.chains.get('symptom_disease', self.default_chain)
             self.current_chain_name = 'Symptom Disease Doctor'  # Update bot name
             logger.info("Switched to chain: symptom_disease")
-            user_input = "Hi"
             return self.current_chain
         elif determine == 2:
             self.current_chain = self.chains.get('skin_disease', self.default_chain)
             self.current_chain_name = 'Skin Disease Doctor'  # Update bot name
             logger.info("Switched to chain: skin_disease")
-            user_input = "Hi"
             return self.current_chain
         elif determine == 3:
             self.current_chain = self.chains.get('donna', self.default_chain)
             self.current_chain_name = 'Donna'  # Update bot name
             logger.info("Switched to chain: donna")
-            user_input = "Hi"
             return self.current_chain
        # elif user_input.lower() == "reset":
         #    self.current_chain = None
@@ -186,8 +182,9 @@ class Agent:
         """
         logger.info(f"Conv History:  {conversation_history}")
         logger.info(f"user input: {user_input}")
-        conversation_history = conversation_history +"\n"+ "Patient: " + user_input
-        chain = self.determine_chain(user_input,conversation_history)
+        temp_conversation_history = conversation_history +"\n"+ "Patient: " + user_input
+        temp_chain = self.current_chain_name
+        chain = self.determine_chain(user_input,temp_conversation_history)
         if not chain:
             logger.error("No chain available to handle the request.")
             return {
@@ -195,9 +192,12 @@ class Agent:
                 'bot_name': self.current_chain_name,
                 'bot_icon': 'images/nurse_icon.png'  # Default icon
             }
-
+        print(conversation_history)
+        print(user_input)
         logger.info(f"Delegating to chain: {chain.__class__.__name__}")
-
+        if temp_chain != self.current_chain_name:
+            user_input = 'Hi '+self.current_chain_name
+        conversation_history = conversation_history +"\n"+ "Patient: " + user_input
       #  if user_input.lower() == 'reset':
         #    user_input = 'Hi'
 
@@ -210,7 +210,7 @@ class Agent:
             response_in_arabic = self.translate_text(response['response'], 'Arabic')
             print(f"Translated response to Arabic: {response_in_arabic}")
             response['response'] = response_in_arabic
-       
+        print(self.current_chain_name)
         # Include bot icon based on current chain
         if self.current_chain_name == 'Symptom Disease Doctor':
             response['bot_icon'] = 'images/symptom_disease_icon.png'
@@ -220,5 +220,4 @@ class Agent:
             response['bot_icon'] = 'images/donna_icon.png'
         else:
             response['bot_icon'] = 'images/nurse_icon.png'
-        print(response['bot_icon'])
         return response

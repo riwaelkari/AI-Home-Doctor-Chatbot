@@ -127,7 +127,7 @@ def chat():
                     logger.error(f"Error during transcription: {e}", exc_info=True)
                     return jsonify({'error': 'Audio transcription failed.'}), 500
         if not message and image and not audio:
-            message = "Image provided"
+            message = "Provided"
         if not message and not image and not audio:
             return jsonify({'error': 'No message, image, or audio provided.'}), 400
 
@@ -157,7 +157,6 @@ def chat():
         ])
 
         # Delegate to the agent
-        print(agent.current_chain)
         response_dict = agent.handle_request(user_input_en, formatted_history, image_path, language)
 
         # Add user and assistant messages to memory
