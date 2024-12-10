@@ -105,6 +105,10 @@ In Your DockerFile fill the folllowing:
 In the directory that has the Dockerfile, run the following:
    ```
    docker build -t chatbot-home-doctor .
+
+   docker run -p 5000:5000 --name chatbot-container chatbot-home-doctor
+
+   #or run from docker and use port 5000 
    ```
 3. **Starting the Flask server**
 
