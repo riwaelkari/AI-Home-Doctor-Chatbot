@@ -92,7 +92,7 @@ Before you begin, ensure you have the following installed on your system:
 
 1. **Add Environment Variables**
 
-In Your Docker Image fill the folllowing:
+In Your DockerFile fill the folllowing:
 
    ```
    ENV SECRET_TOKEN = '' # Your OpenAI API Key 
