@@ -8,7 +8,7 @@ from PIL import Image
 import io
 from actual_models.skin_disease_model import predict
 
-from ..utils import query_refiner_models
+from ..utils import query_refiner_models,guard_skin
 logger = logging.getLogger(__name__)
 
 class SkinDiseaseChain(BaseChain):
@@ -105,47 +105,53 @@ Conversation: {conversation}
             dict: A dictionary containing the chatbot's response and any additional data.
         """
         
-        
-        predicted_disease = None
-        response = ""
+        guard_response = guard_skin(user_input) #apply guard rails here
+        if (guard_response == 'allowed'):
+            predicted_disease = None
+            response = ""
 
-        if image_path:
-                try:
-                    # Process the image and predict the disease
-                    predicted_disease = predict( self.disease_model,
-                        image_path
-                    )
-                    logger.info(f"Predicted Disease: {predicted_disease}")
+            if image_path:
+                    try:
+                        # Process the image and predict the disease
+                        predicted_disease = predict( self.disease_model,
+                            image_path
+                        )
+                        logger.info(f"Predicted Disease: {predicted_disease}")
 
-                    # Set the flag indicating that an image has been provided and diagnosed
-                    self.image_provided = True
+                        # Set the flag indicating that an image has been provided and diagnosed
+                        self.image_provided = True
 
-                    # Generate response using the disease-specific prompt
-                    disease_prompt = self.get_disease.format(
+                        # Generate response using the disease-specific prompt
+                        disease_prompt = self.get_disease.format(
+                            conversation=conversation,
+                            predicted_disease=predicted_disease
+                        )
+                        response = self.llm.invoke(disease_prompt)
+                    except Exception as e:
+                        logger.error(f"Error processing image: {e}")
+                        response = "I'm sorry, but I couldn't process the image you provided. Could you please try uploading it again?"
+            else:
+                    print("Hal wosil lahon aw laaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                    # No image provided; prompt the user to upload an image
+                    main_prompt = self.get_main_prompt.format(
                         conversation=conversation,
-                        predicted_disease=predicted_disease
+                        image_uploaded=self.image_provided
                     )
-                    response = self.llm.invoke(disease_prompt)
-                except Exception as e:
-                    logger.error(f"Error processing image: {e}")
-                    response = "I'm sorry, but I couldn't process the image you provided. Could you please try uploading it again?"
-        else:
-                # No image provided; prompt the user to upload an image
-                main_prompt = self.get_main_prompt.format(
-                    conversation=conversation,
-                    image_uploaded=self.image_provided
-                )
-                response = self.llm.invoke(main_prompt)
+                    response = self.llm.invoke(main_prompt)
 
-            # Handle LLM response object
-        if hasattr(response, 'content'):
-                final_response = response.content
-        else:
-                final_response = response
+                # Handle LLM response object
+            if hasattr(response, 'content'):
+                    final_response = response.content
+            else:
+                    final_response = response
 
-        return {
-                'response': final_response,
-                'predicted_disease': predicted_disease if predicted_disease else ""
-            }
-    
+            return {
+                    'response': final_response,
+                    'predicted_disease': predicted_disease if predicted_disease else ""
+                }
+        else:
+             # If the guard response is not 'allowed', return the guard's response
+             return {"response": guard_response}
+
         
+            

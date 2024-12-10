@@ -126,7 +126,8 @@ def chat():
                 except Exception as e:
                     logger.error(f"Error during transcription: {e}", exc_info=True)
                     return jsonify({'error': 'Audio transcription failed.'}), 500
-
+        if not message and image and not audio:
+            message = "Image provided"
         if not message and not image and not audio:
             return jsonify({'error': 'No message, image, or audio provided.'}), 400
 

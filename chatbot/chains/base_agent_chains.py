@@ -88,7 +88,7 @@ class BaseModelChain(BaseChain):
                 response = "This Doctor does not support images, please either choose a doctor that does, or refrain from attaching images."
                 return {"response": response}
              # If the query contains the word "description" (likely asking for more information about symptoms or diagnosis)
-            elif "description" in query.lower():
+            elif "description" in query.lower() or "describe" in query.lower():
                 response = self.llm.invoke(
                     self.get_describe_prompt.format(user_input=query)
                 )

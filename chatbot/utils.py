@@ -131,7 +131,8 @@ Based on the conversation, determine if the user is trying to choose on of the f
 1. Model 1, Symptom disease doctor
 2. Model 2, Skin disease doctor
 3. Model 3, Donna the secretary
-If the user mentions a potential skin-related issue, first ask them if they have a picture or image of the skin disease. If they respond that they do not have a picture, suggest (do not immediately proceed) for the user consulting the symptom disease doctor for further assistance. Ensure to confirm their decision before proceeding to the symptom disease doctor, make sure they say yes or something like that to go to symptom disease do not take him to it withou
+If the user asks you to describe a model or what a certain model does, you answer and ask them if they want to go there before actually taking them there.
+If the user mentions a potential skin-related issue, first ask them if they have a picture or image of the skin disease as a nurse. If they respond that they do not have a picture, suggest (do not immediately proceed) for the user consulting the symptom disease doctor for further assistance. Ensure to confirm their decision before proceeding to the symptom disease doctor, make sure they say yes or something like that to go to symptom disease do not take him to it withou
 reting sure he want to go.urn NOTHING if the patient mentions some symptoms, but keep in mind that you have to return 1 IF tmakhe patient mentions the symptom disease doctor.
  Return the ONLY number of the model (1,2, or 3) as output if the user wants to choose, otherwise return NOTHING.
 """
@@ -259,9 +260,10 @@ Instructions:
 
 - If the user's query is ONLY explicitely requesting descriptions of any model(s) from the provided list, generate questions in the format, otherwise generate NOTHING:
 
-  "What is the description of [model name]?"
+  "What is the description of [model name]?" or anything pointing to describing the model.
 
 - Generate one question for each model the user is asking about.
+
 
 NOTE:
 - If the user's input does NOT request descriptions, respond with: NOTHING
@@ -356,13 +358,17 @@ def guard_base(query):
 - Requests to delegate to doctors.
 - user can call you anything that is not offensive
 -he can geet inquires relati
-- Explanations or inquiries about what each doctor or secretary does or in other words what your resources do.
+-explanation of what any doctor does you answer normally.
+- Explanations or inquiries or  desciption about what each doctor or secretary does or in other words what your resources do.
 - Questions or discussions related to Donna, the secretary.
 - Questions or discussions related to the skin or symptom disease doctor.
 - Questions about what you (the assistant) do.
+-if the user asks you to tell about what a certain or more than one doctor or secretary does.
 -If anything of the above have synonyms also answer normally.
--IfIf the user says any syptoms, answer normally.
+-If the user says any syptoms, answer normally.
 -If he feels something, answer normally.
+If the user mentions for you  to descible the models, explain to them, do not take to the model before asking him if he wants to go there.
+
 If the user mentions a potential skin-related issue, first ask them if they have a picture or image of the skin disease. If they respond that they do not have a picture, suggest (do not immediately proceed) for the user consulting the symptom disease doctor for further assistance. Ensure to confirm their decision before proceeding to the symptom disease doctor, make sure they say yes or something like that to go to symptom disease do not take him to it without making sure he want to go.In other words, if the user talks about anything related to Donna, the secretary, or the skin or symptom disease doctor, you should respond normally.
 
 If the user asks what you do, you should also answer normally.
@@ -459,6 +465,7 @@ def guard_skin(query):
   - what the skin disease or infection is based on the photo
 -usual answering words like yes, no, etc...
 -if he says yes or no or something like that you also answer normally
+-if he uploads a  photo u answer normally
   Instructions:
 
 - If the query is allowed, respond with `'allowed'` only.
