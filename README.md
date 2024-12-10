@@ -68,7 +68,7 @@ Setting up the **Chatbot Home Doctor** involves several steps, including environ
 Before you begin, ensure you have the following installed on your system:
 
 - **Python 3.8 or higher**: [Download Python](https://www.python.org/downloads/)
-- **Docker** (optional, for containerization): [Download Docker](https://www.docker.com/get-started)
+- **Docker** (Recommended, for containerization): [Download Docker](https://www.docker.com/get-started)
 - **Git**: [Download Git](https://git-scm.com/downloads)
 - **Kaggle Account** (optional, to visualize the daatsets used): To download the datasets.
 
