@@ -133,6 +133,7 @@ def model_selector(conversation):
     3: Donna the secretary
 
     Desired Logic:
+
     - If the Patient explicitly or clearly agrees to proceed to or chooses the "Symptom disease doctor", return "1".
     - If the Patient explicitly or clearly agrees to proceed to or chooses  the "Skin disease doctor", return "2".
     - If the Patient explicitly or clearly agrees to proceed to or chooses the "Donna the secretary", return "3".
@@ -141,7 +142,8 @@ def model_selector(conversation):
     - Similar logic applies if the Patient discusses models but doesn't explicitly agree. Only return a model number after clear Patient agreement.
     -If the Patient says that  he want to scheduele a reminder or anythin related to reminding or remidning for medicine, you suggest to go to donna
     The model should interpret Patient intentions in a slightly flexible manner:
-    - "Yes, let's talk to the symptom disease doctor" or "Sure, connect me to the Symptom disease doctor" or "Okay, I'll go to the Symptom disease doctor" are all confirmations.
+     - If he does not have a picture, tell him about the symptom disease doctor 
+     - "Yes, let's talk to the symptom disease doctor" or "Sure, connect me to the Symptom disease doctor" or "Okay, I'll go to the Symptom disease doctor" are all confirmations.
     - If no clear confirmation is given, return "NOTHING".
 
     NOTE: The final answer from the model must be a single token: "1", "2", "3", or "NOTHING".
@@ -353,10 +355,6 @@ def guard_base(query):
             {
                 "role": "system", 
                 "content": f""" 
-            You are a helpful assistant responsible for determining if the Patient's query falls under allowed topics: normal conversation starters, or requests to delegate to doctors, or explanation or inqueries of what each doctor or secretary does who is donna, meaning, if the Patient talks about anything related to donna the secretary or the skin or symptom disease doctor, it asks normally but if it asks anything about something very far from its functionality, then it doesnt work. 
-            if he asks you what you do also answer normally.  if he gives you a potential skin disease then ASK him if he has picture if not then ASK HIM if he wants to go to symptom disease doc
-              just if the topic is way off topic meaning then dont asnwer
-             Normal conversation starters.
 - Requests to delegate to doctors.
 - Patient can call you anything that is not offensive
 -he can geet inquires relati
@@ -369,7 +367,10 @@ def guard_base(query):
 - If anything of the above have synonyms also answer normally.
 - If the Patient says any syptoms, answer normally.
 - If he feels something, answer normally.
+-Simple affirmations/negations (yes, no)
+-Greeting/Farewell
 - Allow expressions and reactions such as oh no!, yes, wow!, etc..
+-Allow the user to say if he has or does not have an image
 - If the Patient mentions for you  to descible the models, explain to them, do not take to the model before asking him if he wants to go there.
 - If the Patient mentions a potential skin-related issue, first ask them if they have a picture or image of the skin disease. If they respond that they do not have a picture, suggest (do not immediately proceed) for the Patient consulting the symptom disease doctor for further assistance. Ensure to confirm their decision before proceeding to the symptom disease doctor, make sure they say yes or something like that to go to symptom disease do not take him to it without making sure he want to go.In other words, if the Patient talks about anything related to Donna, the secretary, or the skin or symptom disease doctor, you should respond normally.
 - If the Patient asks what you do, you should also answer normally.
@@ -422,6 +423,7 @@ def guard_symptom(query):
   - Prognosis and outcomes
   - If the Patient's query includes any of the words "description", "precautions", or "severity", generate a question in the format:
   - if Patient says he  wants to talk to you, symptom disease doctor, you answer normally
+ 
   - Allow expressions and reactions such as oh no!, yes, wow!, etc..
   Instructions:
 
@@ -460,7 +462,8 @@ def guard_skin(query):
    - if Patient says they  wants to talk to you, skin diseases doctor, you allow
    - Normal conversation starters like hi and stuff like that and how are you feeling blabla and saying bye.
    -Normal doctor patient interactions
-   -Attach or picture or image of skin  disease related inqueries
+   -Attach or picture or image of skin  disease related inqueries is allowed
+   -if the user has provided an image (said provided) it is allowed
    -Normal what the person is feeling in terms of wellness physical and anything that has skin stuff 
    - Medical questions related to skin diseases and infections, including:
    - A picture ofthe skin infection or disease
@@ -470,7 +473,7 @@ def guard_skin(query):
    -if they uploads a photo u answer normally
   Instructions:
 
-- If the query is allowed, respond with `'allowed'` only.
+- If the query is allowed, respond with 'allowed' only.
 - If the query is not allowed, politely inform the Patient that you can only assist with medical skin-related inquiries  .
 
 -
