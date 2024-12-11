@@ -70,15 +70,11 @@ Before you begin, ensure you have the following installed on your system:
 - **Kaggle Account** (optional, to visualize the daatsets used): To download the datasets.
 
 ### Configuration and Running
-
-1. **Add Environment Variables**
-
-In Your DockerFile fill the folllowing:
+1. **Clone the Repository**
 
    ```
-   ENV SECRET_TOKEN = '' # Your OpenAI API Key 
-   ENV GMAIL_PASS = '' # Password of the account used to send reminders
-   ENV GMAIL_USER = '' # email of the account used to send reminders
+   git clone https://github.com/dayehhadi/AI-Home-Doctor-Chatbot
+   cd AI-Home-Doctor-Chatbot
    ```
 2. **Setup a Virtual Environment (Recommended)**
 
@@ -86,11 +82,15 @@ In Your DockerFile fill the folllowing:
    python -m venv venv
    venv\Scripts\activate # For windows
    ```
-3. **Clone the Repository**
+
+3. **Add Environment Variables**
+
+In Your DockerFile fill the folllowing:
 
    ```
-   git clone https://github.com/dayehhadi/AI-Home-Doctor-Chatbot
-   cd AI-Home-Doctor-Chatbot
+   ENV SECRET_TOKEN = '' # Your OpenAI API Key 
+   ENV GMAIL_PASS = '' # Password of the account used to send reminders
+   ENV GMAIL_USER = '' # email of the account used to send reminders
    ```
 
 4. **Run a Docker Image**
