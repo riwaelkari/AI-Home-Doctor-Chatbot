@@ -1,14 +1,14 @@
 # app/utils.py
 import numpy as np
-import openai
 import logging
 logger = logging.getLogger(__name__)
 import os
+import openai
 
 # Initialize symptom encoding and decoding
 def encode_user_symptoms(user_symptoms, all_symptoms):
     """
-    Converts user symptoms into a binary vector based on all possible symptoms.
+    Converts Patient symptoms into a binary vector based on all possible symptoms.
     Returns the encoded vector and a list of unrecognized symptoms.
     """
     input_vector = np.zeros(len(all_symptoms))
@@ -69,17 +69,17 @@ def query_refiner(query, disease):
             {
                 "role": "system",
                 "content": f"""
-You are a helpful assistant that refines user queries based on the conversation context.
+You are a helpful assistant that refines Patient queries based on the conversation context.
 
 Instructions:
 
-- If the user's query includes any of the words "description", "precautions", or "severity", generate a question in the format:
+- If the Patient's query includes any of the words "description", "precautions", or "severity", generate a question in the format:
 
   "What is/are [description/precautions/severity] of {disease}?"
 
-- Ensure that the keyword from the user's query ("description", "precautions", or "severity") is used in your formulated question.
+- Ensure that the keyword from the Patient's query ("description", "precautions", or "severity") is used in your formulated question.
 
-- If the user's input does NOT include any of these keywords, respond with:
+- If the Patient's input does NOT include any of these keywords, respond with:
 
   "NO OUTPUT"
 
@@ -89,7 +89,7 @@ Instructions:
             {
                 "role": "user",
                 "content": f"""
-User Query:
+Patient Query:
 {query}
 
 Refined Query:"""
@@ -109,13 +109,13 @@ Refined Query:"""
 
 def model_selector(conversation):
     """
-    Analyzes a conversation and determines the user's intent to select a specific model or expert 
+    Analyzes a conversation and determines the Patient's intent to select a specific model or expert 
     (e.g., Symptom disease doctor, Skin disease doctor, or Secretary). This function identifies 
-    if the user is trying to interact with one of the predefined models based on the conversation context.
+    if the Patient is trying to interact with one of the predefined models based on the conversation context.
 
     Args:
         conversation (list): A list of messages that make up the ongoing conversation. Each message 
-                              contains a role (system, user, assistant) and content.
+                              contains a role (system, Patient, assistant) and content.
 
     Returns:
         str: The name of the selected model (e.g., "Model 1, Symptom disease doctor", "Model 2, Skin disease doctor", 
@@ -127,20 +127,20 @@ def model_selector(conversation):
             {
                 "role": "system",
                 "content":    f"""
-    Analyzes a conversation and determines if the user wants to select a specific model:
+    Analyzes a conversation and determines if the Patient wants to select a specific model:
     1: Symptom disease doctor
     2: Skin disease doctor
     3: Donna the secretary
 
     Desired Logic:
-    - If the user explicitly or clearly agrees to proceed to or chooses the "Symptom disease doctor", return "1".
-    - If the user explicitly or clearly agrees to proceed to or chooses  the "Skin disease doctor", return "2".
-    - If the user explicitly or clearly agrees to proceed to or chooses the "Donna the secretary", return "3".
-    - If the user only inquires about what a model does, or mentions symptoms or conditions without clearly agreeing to proceed, return "NOTHING".
-    - If the user mentions a skin issue, the assistant (nurse) should ask if they have a picture. If the user does not have one, the nurse should suggest consulting the Symptom disease doctor (Model 1) but not select it yet. If the user then says "Yes" or clearly agrees to go to that doctor, return "1".
-    - Similar logic applies if the user discusses models but doesn't explicitly agree. Only return a model number after clear user agreement.
-    -If the user says that  he want to scheduele a reminder or anythin related to reminding or remidning for medicine, you suggest to go to donna
-    The model should interpret user intentions in a slightly flexible manner:
+    - If the Patient explicitly or clearly agrees to proceed to or chooses the "Symptom disease doctor", return "1".
+    - If the Patient explicitly or clearly agrees to proceed to or chooses  the "Skin disease doctor", return "2".
+    - If the Patient explicitly or clearly agrees to proceed to or chooses the "Donna the secretary", return "3".
+    - If the Patient only inquires about what a model does, or mentions symptoms or conditions without clearly agreeing to proceed, return "NOTHING".
+    - If the Patient mentions a skin issue, the assistant (nurse) should ask if they have a picture. If the Patient does not have one, the nurse should suggest consulting the Symptom disease doctor (Model 1) but not select it yet. If the Patient then says "Yes" or clearly agrees to go to that doctor, return "1".
+    - Similar logic applies if the Patient discusses models but doesn't explicitly agree. Only return a model number after clear Patient agreement.
+    -If the Patient says that  he want to scheduele a reminder or anythin related to reminding or remidning for medicine, you suggest to go to donna
+    The model should interpret Patient intentions in a slightly flexible manner:
     - "Yes, let's talk to the symptom disease doctor" or "Sure, connect me to the Symptom disease doctor" or "Okay, I'll go to the Symptom disease doctor" are all confirmations.
     - If no clear confirmation is given, return "NOTHING".
 
@@ -169,11 +169,11 @@ def model_selector(conversation):
 
 def query_refiner_severity(conversation, query):
     """
-    Refines a user's query related to symptoms mentioned in the conversation by generating questions 
+    Refines a Patient's query related to symptoms mentioned in the conversation by generating questions 
     specifically asking for the severity of each symptom. If no symptoms are found in the conversation, 
     the function responds with "NO OUTPUT".
 
-    This function analyzes the most recent user message, identifies any symptoms, and generates a list of 
+    This function analyzes the most recent Patient message, identifies any symptoms, and generates a list of 
     questions asking about the severity of each symptom.
 
     Args:
@@ -214,7 +214,7 @@ Instructions:
 Conversation Log:
 {conversation}
 
-User Query:
+Patient Query:
 {query}
 
 Refined Questions:"""
@@ -280,7 +280,7 @@ List of Models:
             {
                 "role": "user",
                 "content": f"""
-User Query:
+Patient Query:
 {query}
 """
             }
@@ -296,8 +296,6 @@ User Query:
         return ""
     else:
         return output
-
-from langchain_community.embeddings import OpenAIEmbeddings
 
 def find_match(input_text, embeddings_model, index, faiss_store, top_k=2):
     """
@@ -355,32 +353,31 @@ def guard_base(query):
             {
                 "role": "system", 
                 "content": f""" 
-            You are a helpful assistant responsible for determining if the user's query falls under allowed topics: normal conversation starters, or requests to delegate to doctors, or explanation or inqueries of what each doctor or secretary does who is donna, meaning, if the user talks about anything related to donna the secretary or the skin or symptom disease doctor, it asks normally but if it asks anything about something very far from its functionality, then it doesnt work. 
+            You are a helpful assistant responsible for determining if the Patient's query falls under allowed topics: normal conversation starters, or requests to delegate to doctors, or explanation or inqueries of what each doctor or secretary does who is donna, meaning, if the Patient talks about anything related to donna the secretary or the skin or symptom disease doctor, it asks normally but if it asks anything about something very far from its functionality, then it doesnt work. 
             if he asks you what you do also answer normally.  if he gives you a potential skin disease then ASK him if he has picture if not then ASK HIM if he wants to go to symptom disease doc
               just if the topic is way off topic meaning then dont asnwer
              Normal conversation starters.
 - Requests to delegate to doctors.
-- user can call you anything that is not offensive
+- Patient can call you anything that is not offensive
 -he can geet inquires relati
 -explanation of what any doctor does you answer normally.
 - Explanations or inquiries or  desciption about what each doctor or secretary does or in other words what your resources do.
 - Questions or discussions related to Donna, the secretary.
 - Questions or discussions related to the skin or symptom disease doctor.
 - Questions about what you (the assistant) do.
--if the user asks you to tell about what a certain or more than one doctor or secretary does.
--If anything of the above have synonyms also answer normally.
--If the user says any syptoms, answer normally.
--If he feels something, answer normally.
-If the user mentions for you  to descible the models, explain to them, do not take to the model before asking him if he wants to go there.
-
-If the user mentions a potential skin-related issue, first ask them if they have a picture or image of the skin disease. If they respond that they do not have a picture, suggest (do not immediately proceed) for the user consulting the symptom disease doctor for further assistance. Ensure to confirm their decision before proceeding to the symptom disease doctor, make sure they say yes or something like that to go to symptom disease do not take him to it without making sure he want to go.In other words, if the user talks about anything related to Donna, the secretary, or the skin or symptom disease doctor, you should respond normally.
-
-If the user asks what you do, you should also answer normally.
+- If the Patient asks you to tell about what a certain or more than one doctor or secretary does.
+- If anything of the above have synonyms also answer normally.
+- If the Patient says any syptoms, answer normally.
+- If he feels something, answer normally.
+- Allow expressions and reactions such as oh no!, yes, wow!, etc..
+- If the Patient mentions for you  to descible the models, explain to them, do not take to the model before asking him if he wants to go there.
+- If the Patient mentions a potential skin-related issue, first ask them if they have a picture or image of the skin disease. If they respond that they do not have a picture, suggest (do not immediately proceed) for the Patient consulting the symptom disease doctor for further assistance. Ensure to confirm their decision before proceeding to the symptom disease doctor, make sure they say yes or something like that to go to symptom disease do not take him to it without making sure he want to go.In other words, if the Patient talks about anything related to Donna, the secretary, or the skin or symptom disease doctor, you should respond normally.
+- If the Patient asks what you do, you should also answer normally.
 
 Instructions:
 
 - If the query is allowed, respond with `'allowed'` only.
-- If the query is not allowed, politely inform the user that you can only assist with medical-related inquiries, help delegate to available doctors, or explain what each one does.
+- If the query is not allowed, politely inform the Patient that you can only assist with medical-related inquiries, help delegate to available doctors, or explain what each one does.
 
             
                 """
@@ -388,7 +385,7 @@ Instructions:
             {
                 "role": "user",
                 "content": f"""
-User Query:
+Patient Query:
 {query}
 
 Refined Query:"""
@@ -411,24 +408,25 @@ def guard_symptom(query):
                 "role": "system", 
                 "content": f""" 
 
- You are a helpful assistant responsible for determining if the user's query falls under allowed topics:
+ You are a helpful assistant responsible for determining if the Patient's query falls under allowed topics:
    - Normal conversation starters  like saying hi and stuff like that  and how are you feeling blabla and saying bye.
    -Normal doctor patient interactions
    -if he says he feels sick  or any discomfort you respond normally also like the nurse you are 
    -if he says yes no or please it is normal ayou are allowed to answer
    -Normal what the person is feeling in terms of wellness physical and anything that has symptoms 
-- Medical questions related to symptoms or diseases, including:
+   - Medical questions related to symptoms or diseases, including:
   - Their descriptions, and if they say describe or any synonym of describe you allow you answer normally
   - Precautions and prevention and if they say how to prevent of any thing that points to precautions or prevention, you answer normally
   - Severity and progression
   - Causes and risk factors
   - Prognosis and outcomes
-  - If the user's query includes any of the words "description", "precautions", or "severity", generate a question in the format:
-- if user says he  wants to talk to you, symptom disease doctor, you answer normally
+  - If the Patient's query includes any of the words "description", "precautions", or "severity", generate a question in the format:
+  - if Patient says he  wants to talk to you, symptom disease doctor, you answer normally
+  - Allow expressions and reactions such as oh no!, yes, wow!, etc..
   Instructions:
 
 - If the query is allowed, respond with `'allowed'` only.
-- If the query is not allowed, politely inform the user that you can only assist with medical symptom-related inquiries  .
+- If the query is not allowed, politely inform the Patient that you can only assist with medical symptom-related inquiries  .
 
 -
                 """
@@ -436,7 +434,7 @@ def guard_symptom(query):
             {
                 "role": "user",
                 "content": f"""
-User Query:
+Patient Query:
 {query}
 
 Refined Query:"""
@@ -458,22 +456,22 @@ def guard_skin(query):
             {
                 "role": "system", 
                 "content": f""" 
-    You are a helpful assistant responsible for determining if the user's query falls under allowed topics:
-   - if user says he  wants to talk to you, skin diseases doctor, you answer normally
+    You are a helpful assistant responsible for determining if the Patient's query falls under allowed topics:
+   - if Patient says they  wants to talk to you, skin diseases doctor, you allow
    - Normal conversation starters like hi and stuff like that and how are you feeling blabla and saying bye.
-   -Normal doctor patient interactions\
+   -Normal doctor patient interactions
    -Attach or picture or image of skin  disease related inqueries
    -Normal what the person is feeling in terms of wellness physical and anything that has skin stuff 
-- Medical questions related to skin diseases and infections, including:
-  - A picture ofthe skin infection or disease
-  - what the skin disease or infection is based on the photo
--usual answering words like yes, no, etc...
--if he says yes or no or something like that you also answer normally
--if he uploads a  photo u answer normally
+   - Medical questions related to skin diseases and infections, including:
+   - A picture ofthe skin infection or disease
+   - what the skin disease or infection is based on the photo
+   -usual answering words like yes, no, etc...
+   -if they says yes or no or something like that you allow
+   -if they uploads a photo u answer normally
   Instructions:
 
 - If the query is allowed, respond with `'allowed'` only.
-- If the query is not allowed, politely inform the user that you can only assist with medical skin-related inquiries  .
+- If the query is not allowed, politely inform the Patient that you can only assist with medical skin-related inquiries  .
 
 -
  """
@@ -481,7 +479,7 @@ def guard_skin(query):
             {
                 "role": "user",
                 "content": f"""
-User Query:
+Patient Query:
 {query}
 
 Refined Query:"""
@@ -503,28 +501,28 @@ def guard_donna(query):
             {
                 "role": "system", 
                 "content": f""" 
-            You are a helpful assistant responsible for determining if the user's query falls under allowed topics.
+            You are a helpful assistant responsible for determining if the Patient's query falls under allowed topics.
 
 Allowed Topics:
-- if user says he  wants to talk to you, donna, you answer normally
+- if Patient says he  wants to talk to you, donna, you answer normally
    - Normal conversation starters like hi and stuff like that and how are you feeling blabla and saying bye.
    - saying who you are where  you start the convo with this 
    -Normal secretary reminder  patient interactions
 -usual answering words 
 - Requests to remind or schedule taking medications, can also mention the remind via email  or anything to do with timing reminders .
-  - This includes reminding the user about specific medications, scheduling reminders, or answering general questions related to medications (e.g., dosage, timing).
+  - This includes reminding the Patient about specific medications, scheduling reminders, or answering general questions related to medications (e.g., dosage, timing).
   -if he says bye or something like that you also answer normally
   -if he says yes or no or something like that you also answer normally
   -if he verifies the information you said you also answer normally
 Instructions:
 - If the query is allowed, respond with `'allowed'` only.
-- If the query is not allowed, politely inform the user that you can only assist with reminding or scheduling reminders to take medication.
+- If the query is not allowed, politely inform the Patient that you can only assist with reminding or scheduling reminders to take medication.
  """
             },
             {
                 "role": "user",
                 "content": f"""
-User Query:
+Patient Query:
 {query}
 
 Refined Query:"""
