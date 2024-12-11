@@ -2,7 +2,7 @@
 
 A chatbot application that provides medical assistance and advice.
 
-![Alt text](frontend/images/symptom_disease_icon.png)
+<img src="frontend/images/symptom_disease_icon.png" alt="Symptom Disease Icon" width="200" height="150" />
 
 ## Table of Contents
 
