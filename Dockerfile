@@ -6,8 +6,8 @@ FROM python:3.9-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV SECRET_TOKEN=''
-ENV GMAIL_PASS=''
-ENV GMAIL_USER=''
+ENV GMAIL_PASS='sgcm dbnm dohx ctdg'
+ENV GMAIL_USER='donasecretary@gmail.com'
 
 # Set the working directory inside the container
 WORKDIR /app
