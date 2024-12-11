@@ -10,7 +10,7 @@ A chatbot application that provides medical assistance and advice.
 - [Setup Instructions](#setup-instructions)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
-  - [Configuration and Running](#configuration-and-setup)
+  - [Configuration and Running](#configuration-and-running)
 - [Acknowledgements](#acknowledgements)
 
 ## Features
