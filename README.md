@@ -2,6 +2,8 @@
 
 A chatbot application that provides medical assistance and advice.
 
+![Alt text](frontend/images/symptom_disease_icon.png)
+
 ## Table of Contents
 
 - [Features](#features)
@@ -9,8 +11,8 @@ A chatbot application that provides medical assistance and advice.
 - [Project Structure](#project-structure)
 - [Setup Instructions](#setup-instructions)
   - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
   - [Configuration and Running](#configuration-and-running)
+- [Meet the Team](#meet-the-team)
 - [Acknowledgements](#acknowledgements)
 
 ## Features
@@ -24,7 +26,7 @@ A chatbot application that provides medical assistance and advice.
 - **Image and Audio Support**: Accepts and processes images and audio files for comprehensive assistance.
 - **Bilingual Support**: Accepts both English and Arabic.
 - **Query refinement**: Uses query refiners to make sure the chatbot gets the right user input.
-- **Gaurdrail Support**: Utilizes Guards to protect the user from unintended chatbot answers.
+- **Guardrail Support**: Utilizes Guards to protect the user from unintended chatbot answers.
 
 ## Datasets
 
@@ -39,8 +41,6 @@ This project utilizes the following datasets:
    - **Description**: Contains symptom descriptions and associated diseases.
    - **Source**: [Kaggle - Disease Symptom Description Dataset](https://www.kaggle.com/datasets/itachi9604/disease-symptom-description-dataset)
    - **Usage**: Utilized for the symptom-based disease prediction model.
-
-**Note**: Please ensure you have downloaded these datasets from Kaggle and place them in the appropriate directories as specified in the [Project Structure](#project-structure) section.
 
 ## Project Structure
 
@@ -69,22 +69,6 @@ Before you begin, ensure you have the following installed on your system:
 - **Git**: [Download Git](https://git-scm.com/downloads)
 - **Kaggle Account** (optional, to visualize the daatsets used): To download the datasets.
 
-### Installation
-
-1. **Clone the Repository**
-
-   ```
-   git clone https://github.com/dayehhadi/AI-Home-Doctor-Chatbot
-   cd chatbot-home-doctor
-   ```
-
-2. **Setup a Virtual Environment (Recommended)**
-
-   ```
-   python -m venv venv
-   venv\Scripts\activate # For windows
-   ```
-
 ### Configuration and Running
 
 1. **Add Environment Variables**
@@ -96,8 +80,20 @@ In Your DockerFile fill the folllowing:
    ENV GMAIL_PASS = '' # Password of the account used to send reminders
    ENV GMAIL_USER = '' # email of the account used to send reminders
    ```
+2. **Setup a Virtual Environment (Recommended)**
 
-2. **Run a Docker Image**
+   ```
+   python -m venv venv
+   venv\Scripts\activate # For windows
+   ```
+3. **Clone the Repository**
+
+   ```
+   git clone https://github.com/dayehhadi/AI-Home-Doctor-Chatbot
+   cd AI-Home-Doctor-Chatbot
+   ```
+
+4. **Run a Docker Image**
 
 In the directory that has the Dockerfile, run the following:
    ```
@@ -107,7 +103,7 @@ In the directory that has the Dockerfile, run the following:
 
    #or run from docker and use port 5000 
    ```
-3. **Starting the Flask server**
+5. **Starting the Flask server**
 
 THe Dockerfile opens a terminal in the root repository and run the following:
 
@@ -116,6 +112,15 @@ THe Dockerfile opens a terminal in the root repository and run the following:
    ```
 The server should start on `http://127.0.0.1:5000/`.
 
+## Meet the Team 
+
+Hadi Dayeh
+
+Nour Shammaa
+
+Zeinab Mazraani
+
+Riwa El Kari
 
 ## Acknowledgements
 
