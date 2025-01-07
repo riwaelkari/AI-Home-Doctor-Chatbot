@@ -15,6 +15,12 @@ A chatbot application that provides medical assistance and advice.
 - [Meet the Team](#meet-the-team)
 - [Acknowledgements](#acknowledgements)
 
+## Demo Video
+
+Watch the **Chatbot Home Doctor** in action:  
+[Demo Video](https://drive.google.com/file/d/1j7SfW0T55Ga56gH8kjqn1PS7dl1w8eFs/view?usp=sharing)
+
+
 ## Features
 
 - **Hierarchical Structure**: Utilizes Hierarchy in which the agent controls which chain will be selected based on user input.
